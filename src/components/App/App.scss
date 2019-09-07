@@ -1,3 +1,17 @@
 .App {
 	text-align: center;
 }
+
+.Content {
+	position: relative;
+	z-index: 200;
+}
+
+.Visualizer {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	width: 100%;
+	height: 100%;
+}

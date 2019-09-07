@@ -8,6 +8,7 @@ interface IProps {
 
 interface IState {
 	trackList: ITrack[];
+	currentTrack?: ITrack;
 }
 
 class ListSongs extends Component<IProps, IState> {
@@ -33,6 +34,9 @@ class ListSongs extends Component<IProps, IState> {
 
 	public onSelectTrack(track: ITrack) {
 		this.props.onChangeTrack(track);
+		this.setState({
+			currentTrack: track
+		});
 	}
 
 	render() {
@@ -43,7 +47,7 @@ class ListSongs extends Component<IProps, IState> {
 					this.state.trackList && 
 					this.state.trackList.map((track) => {
 						return (
-							<button type="button" key={track.id} onClick={() => this.onSelectTrack(track)}>
+							<button type="button" key={track.id} onClick={() => this.onSelectTrack(track)} className={"btn btn-secondary" + (track === this.state.currentTrack ? " active" : "")}>
 								{track.id}
 							</button>
 						);
