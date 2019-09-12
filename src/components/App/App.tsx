@@ -1,18 +1,14 @@
 import React, { Component, RefObject } from 'react';
 import "./App.scss";
 import PlayPause from '../PlayPause/PlayPause';
-import ListSongs from '../ListSongs/ListSongs';
-import { ITrack } from '../../interfaces/Tracks';
-import { AppConfig } from '../../app.config';
 
-const FFT_SIZE = 1024;
+const FFT_SIZE = 2048;
 
 interface IProps {}
 
 interface IState {
 	isPlaying: boolean;
-	isStarted: boolean;
-	trackInfo?: ITrack;
+	initFailed: boolean;
 }
 
 class App extends Component<IProps, IState> {
@@ -23,17 +19,17 @@ class App extends Component<IProps, IState> {
 	audioBufferLength?: number;
 	audioContext?: AudioContext;
 	audioDataArray?: Uint8Array;
-	audioElement?: HTMLAudioElement | null;
+	audioStream?: MediaStream;
 	
 	canvasContext?: CanvasRenderingContext2D;
 	canvasElement?: HTMLCanvasElement;
 	
 	constructor(props: IProps) {
 		super(props);
-
+		
 		this.state = {
-			isPlaying: false,
-			isStarted: false
+			initFailed: false,
+			isPlaying: true,
 		};
 
 		this.audioRef = React.createRef();
@@ -41,51 +37,67 @@ class App extends Component<IProps, IState> {
 
 		this.init = this.init.bind(this);
 		this.drawVisuals = this.drawVisuals.bind(this);
-		this.handleChangeTrack = this.handleChangeTrack.bind(this);
 		this.handleChangePlayPause = this.handleChangePlayPause.bind(this);
-		this.onEnded = this.onEnded.bind(this);
+	}
+
+	componentDidMount() {
+		if (this.state.isPlaying) {
+			this.init();
+		}
 	}
 
 	public init() {
-		this.setupAudio();
-		this.setupVisuals();
-		this.setState({
-			isStarted: true
-		})
+		this.setupAudio().then(() => {
+			this.setupVisuals();
+			this.drawVisuals();
+		}, () => {
+			console.log('[init] Could not initiate automatically');
+		});
 	}
 
-	public setupAudio() {
+	public async setupAudio(): Promise<any> {
+		console.log('[setupAudio] called');
 		let audioAnalyser, 
 			audioContext,
-			audioElement,
+			audioStream,
 			audioSourceNode;
-
+		
 		// Create AudioContext
 		audioContext = new AudioContext();
+		
+		if (audioContext.state === 'suspended') {
+			this.setState({
+				initFailed: true,
+				isPlaying: false,
+			})
+			console.log('[setupAudio] Could not initiate AudioContext');
+			return Promise.reject();
+		}
 
 		// Create audio analyser
 		audioAnalyser = audioContext.createAnalyser();
 
 		// Get the audio element
-		audioElement = this.audioRef.current;
-
-		// Check if all is present
-		if (!audioElement) {
+		try {
+			audioStream = await navigator.mediaDevices.getUserMedia({audio:true});
+		} catch(e) {
 			console.error("[setupAudio] failed");
-			return;
+			throw(e);
 		}
 
 		// Pass the audio element into the audio context and connect the analyser
-		audioSourceNode = audioContext.createMediaElementSource(audioElement);
+		audioSourceNode = audioContext.createMediaStreamSource(audioStream);
 		audioSourceNode.connect(audioAnalyser);
-		audioAnalyser.connect(audioContext.destination);
+		// audioAnalyser.connect(audioContext.destination);
 
 		this.audioAnalyser = audioAnalyser;
+		this.audioStream = audioStream;
 		this.audioContext = audioContext;
-		this.audioElement = audioElement;
+		return Promise.resolve();
 	}
 
 	public setupVisuals() {
+		console.log('[setupVisuals] called');
 		let audioAnalyser = this.audioAnalyser,
 			audioBufferLength,
 			audioDataArray,
@@ -93,13 +105,12 @@ class App extends Component<IProps, IState> {
 			canvasElement = this.canvasRef.current;
 
 		canvasContext = canvasElement ? canvasElement.getContext("2d") : null;
-
 		// Check if all is present
 		if (!audioAnalyser || !canvasElement || !canvasContext) {
 			console.error("[setupVisuals] failed");
 			return;
 		}
-
+		
 		// Capture AnalyserNode data
 		audioAnalyser.fftSize = FFT_SIZE;
 		audioBufferLength = audioAnalyser.frequencyBinCount;
@@ -123,21 +134,20 @@ class App extends Component<IProps, IState> {
 			drawFrame,
 			posX,
 			posY,
-			sliceWidth,
-			updateBackground = true;
-		
+			sliceWidth;
+
 		// Check if all is present
 		if (!audioAnalyser || !audioBufferLength || !audioDataArray || !canvasContext || !canvasElement) {
-			console.error("[drawVisuals] failed");
+			console.error(`[drawVisuals] failed \n audioAnalyser: ${audioAnalyser} \n audioBufferLength: ${audioBufferLength} \n audioDataArray: ${audioDataArray} \n canvasContext: ${canvasContext} \n canvasElement: ${canvasElement}`);
 			return;
 		}
 
 		// Stop drawing
 		if (!this.state.isPlaying) {
+			console.log('[drawVisuals] Stop drawing')
 			if (drawFrame) {
 				window.cancelAnimationFrame(drawFrame);
 			}
-			this.setCanvas();
 			return;
 		}
 
@@ -151,14 +161,11 @@ class App extends Component<IProps, IState> {
 		canvasWidth = canvasElement.width;
 		canvasHeight = canvasElement.height;
 
-		// Make a beautifull background
-		if (updateBackground) {
-			this.setCanvas();
-			updateBackground = false;
-		}
+		// Clear canvas
+		canvasContext.clearRect(0, 0, canvasWidth, canvasHeight);
 
 		// Make a line
-		canvasContext.lineWidth = 5;
+		canvasContext.lineWidth = 2;
 		let gradient = canvasContext.createLinearGradient(0, 0, canvasWidth, canvasHeight);
 		gradient.addColorStop(0, 'rgba(255, 0, 50, 1)');
 		gradient.addColorStop(1, 'rgba(50, 0, 255, 1)');
@@ -171,7 +178,7 @@ class App extends Component<IProps, IState> {
 		// Define position for each slice
 		posX = 0;
 		for(var i = 0; i < audioBufferLength; i++) {
-			posY = audioDataArray[i] / audioBufferLength * canvasHeight * 2;
+			posY = audioDataArray[i] / 255 * canvasHeight;
 			
 			// Turn it upside down
 			posY = canvasHeight - posY;
@@ -192,82 +199,29 @@ class App extends Component<IProps, IState> {
 		canvasContext.stroke();
 	}
 
-	public setCanvas() {
-		let canvasContext = this.canvasContext,
-			canvasElement = this.canvasElement,
-			canvasHeight,
-			canvasWidth;
-
-		// Check if all is present
-		if (!canvasElement || !canvasContext) {
-			console.error("[setCanvas] failed");
-			return;
-		}
-		// Store canvas width and height
-		canvasWidth = canvasElement.width;
-		canvasHeight = canvasElement.height;
-
-		let gradient = canvasContext.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-		gradient.addColorStop(0, 'rgba(10, 0, 64, 1)');
-		gradient.addColorStop(1, 'rgba(64, 0, 10, 1)');
-		canvasContext.fillStyle = gradient;
-		canvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
-	}
-
-	public handleChangeTrack(trackInfo: ITrack) {
-		this.setState({
-			trackInfo,
-			isPlaying: false
-		}, () => {
-			this.handleChangePlayPause();
-		});
-	}
-
 	public handleChangePlayPause() {
-		let { isPlaying } = this.state;
-
-		if (!this.audioContext || !this.audioElement) {
-			return;
-		}
-
-		// Check if context is in suspended state (autoplay policy)
-		if (this.audioContext.state === 'suspended') {
-			this.audioContext.resume();
-		}
-
-		// Play or pause track depending on state
-		if (!isPlaying) {
-			this.audioElement.play();
+		if (this.state.initFailed) {
+			this.setState({
+				initFailed: false,
+				isPlaying: true,
+			}, () =>  { 
+				this.init()
+			});
 		} else {
-			this.audioElement.pause();
+			this.setState({
+				isPlaying: !this.state.isPlaying
+			}, () =>  { 
+				this.drawVisuals()
+			});
 		}
-
-		this.setState({
-			isPlaying: !this.state.isPlaying
-		}, () =>  { this.drawVisuals() });
-	}
-
-	public onEnded() {
-		this.setState({
-			isPlaying: false
-		}, () =>  { this.drawVisuals() });
 	}
 
 	render() {
 		return (
 			<div className="App">
 				<div className="Content">
-					<h1>web-audio-visualizer</h1>
-					{ !this.state.isStarted ? (
-						<button type="button" onClick={this.init} className="btn btn-primary">Start</button>
-						) : (
-							<div>
-							<ListSongs onChangeTrack={this.handleChangeTrack} />
-							<PlayPause trackInfo={this.state.trackInfo} isPlaying={this.state.isPlaying} onChangePlayPause={this.handleChangePlayPause} />
-						</div>
-					)}
+				<PlayPause isPlaying={this.state.isPlaying} onChangePlayPause={this.handleChangePlayPause} />
 				</div>
-				<audio crossOrigin="anonymous" ref={this.audioRef} onEnded={this.onEnded} src={this.state.trackInfo ? `${AppConfig.fileServer}${this.state.trackInfo.src}` : ""}></audio>
 				<canvas ref={this.canvasRef} width={window.outerWidth} height={window.outerHeight} className="Visualizer" />
 			</div>
 		);
