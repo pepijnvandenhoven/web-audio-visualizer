@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlay, faPause } from '@fortawesome/free-solid-svg-icons';
+import "./PlayPause.scss";
 
 interface IProps {
 	isPlaying: boolean;
@@ -21,8 +22,8 @@ class PlayPause extends Component<IProps> {
 
 	render() {
 		return (
-			<div>
-				<button type="button" className="btn btn-primary" onClick={this.onPlayPause}>
+			<div className="PlayPause">
+				<button type="button" className="btn btn-secondary" onClick={this.onPlayPause}>
 					<FontAwesomeIcon icon={this.props.isPlaying ? faPause : faPlay} />
 				</button>
 			</div>
