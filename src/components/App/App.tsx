@@ -1,8 +1,13 @@
-// TODO: Throttle requestAnimationFrame and add FPS count - https://stackoverflow.com/questions/19764018/controlling-fps-with-requestanimationframe
 import React, { Component, RefObject } from 'react';
 import "./App.scss";
-import PlayPause from '../PlayPause/PlayPause';
 import { Color, IColorBufferItem } from '../../helpers/Color';
+
+const DEBUG = false;
+
+interface IVisualEffects {
+	reflectHorizontal: boolean;
+	reflectVertical: boolean;
+}
 
 interface IColorRotateObject {
 	value: number;
@@ -16,11 +21,54 @@ interface IState {
 	initFailed: boolean;
 }
 
+class DebuggerWithLimit {
+	limit: number;
+	private count: number = 0;
+
+	constructor(limit: number) {
+		DEBUG && console.log('[DebuggerWithLimit] Constructor called');
+		this.limit = limit;
+	}
+
+	log(...args: any) {
+		this.count++;
+		if (this.count > this.limit) {
+			return;
+		}
+		console.log(...args);
+		if (this.count === this.limit) {
+			console.error('[DebuggerWithLimit] Debugger limit reached!');
+		}
+	}
+	
+	reset() {
+		this.count = 0;
+	}
+}
+
 class App extends Component<IProps, IState> {
-	// Settings
-	private readonly FFT_SIZE = 128;
-	private readonly SAMPLE_RATE = 26000;
-	private readonly COLOR_SMOOTHING = 4;
+	// Debug
+	debugger = new DebuggerWithLimit(100);
+
+	// General settings
+	private readonly AUTO_PLAY = true;
+
+	// Audio settings
+	private readonly ANALYSER_FFT_SIZE = Math.pow(2, 6); // min: Math.pow(2, 5)
+	private readonly ANALYSER_SMOOTHING = 0.85; // default: 0.8
+	private readonly SAMPLE_RATE = 38000; // default: 44100
+	private readonly MAX_BYTE_DATA = 255; // default: 255
+	
+	// Draw settings
+	private readonly VERTICAL_ZOOM = 1;
+	private readonly COLOR_RANGE = 0.2;
+	private readonly COLOR_MIN = 0;
+	private readonly COLOR_MAX = 255;
+	private readonly ALPHA_MIN = 0.7;
+	private readonly VFX: IVisualEffects = {
+		reflectHorizontal: true,
+		reflectVertical: true
+	};
 
 	// Helpers
 	Color = new Color();
@@ -37,19 +85,19 @@ class App extends Component<IProps, IState> {
 	canvasContext: CanvasRenderingContext2D | null = null;
 	canvasElement: HTMLCanvasElement | null = null;
 
-	readonly colorBufferLength = this.FFT_SIZE / 2;
-	readonly colorStep = 255 / this.colorBufferLength / this.COLOR_SMOOTHING;
+	readonly colorBufferLength = this.ANALYSER_FFT_SIZE / 2;
+	readonly colorStep = 255 / this.colorBufferLength * this.COLOR_RANGE;
 	colorBufferArray: Array<IColorBufferItem> = [];
 	rotateR: IColorRotateObject = {
-		value: 170,
-		up: false
+		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
+		up: true
 	};
 	rotateG: IColorRotateObject = {
-		value: 85,
+		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
 		up: false
 	};
 	rotateB: IColorRotateObject = {
-		value: 85,
+		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
 		up: true
 	};
 	
@@ -57,30 +105,33 @@ class App extends Component<IProps, IState> {
 		super(props);
 		
 		this.state = {
-			initFailed: false,
-			isPlaying: true,
+			initFailed: !this.AUTO_PLAY,
+			isPlaying: this.AUTO_PLAY,
 		};
 
 		this.audioRef = React.createRef();
 		this.canvasRef = React.createRef();
 
 		this.drawLoop = this.drawLoop.bind(this);
-		this.handleChangePlayPause = this.handleChangePlayPause.bind(this);
 		this.colorRotateLoop = this.colorRotateLoop.bind(this);
+		this.handleChangePlayPause = this.handleChangePlayPause.bind(this);
+		this.handleCanvasClick = this.handleCanvasClick.bind(this);
 	}
 
 	rotateColor(color: IColorRotateObject) {
 		// Mind requestAnimationFrame!
+
 		let step = this.colorStep;
-		if((color.value >= 255 && color.up) || (color.value <= 0 && !color.up)) {
+		if((color.value >= this.COLOR_MAX && color.up) || (color.value <= this.COLOR_MIN && !color.up)) {
 			color.up = !color.up;
 		}
 		color.value = color.up ? color.value+step : color.value-step;
 		return color;
 	}
-
+	
 	colorRotateStep() {
 		// Mind requestAnimationFrame!
+
 		this.rotateR = this.rotateColor(this.rotateR);
 		this.rotateG = this.rotateColor(this.rotateG);
 		this.rotateB = this.rotateColor(this.rotateB);
@@ -88,11 +139,12 @@ class App extends Component<IProps, IState> {
 
 	colorRotateLoop() {
 		// Mind requestAnimationFrame!
+
 		let colorRotateFrame;
 
 		// Stop drawing, eg. on pause
 		if (!this.state.isPlaying) {
-			console.log('[colorRotateAnimate] Stop drawing')
+			DEBUG && console.log('[colorRotateAnimate] Stop drawing');
 			if (colorRotateFrame) {
 				window.cancelAnimationFrame(colorRotateFrame);
 			}
@@ -124,7 +176,8 @@ class App extends Component<IProps, IState> {
 	}
 
 	setupColorRotate() {
-		console.log('[setupColorRotate] called');
+		DEBUG && console.log('[setupColorRotate] called');
+
 		// Assign a color to each frequency range
 		let len = this.colorBufferLength-1;
 		for (let i = len; i > -1; i--) {
@@ -135,11 +188,13 @@ class App extends Component<IProps, IState> {
 				b: this.rotateB.value
 			});
 		}
+
 		this.colorRotateLoop();
 	}
 
 	async setupAudio(): Promise<any> {
-		console.log('[setupAudio] called');
+		DEBUG && console.log('[setupAudio] called');
+
 		let audioSourceNode;
 		
 		// Create AudioContext
@@ -152,8 +207,10 @@ class App extends Component<IProps, IState> {
 			this.setState({
 				initFailed: true,
 				isPlaying: false,
-			})
-			console.log('[setupAudio] Could not initiate AudioContext');
+			});
+			
+			DEBUG && console.log('[setupAudio] Could not initiate AudioContext');
+
 			return Promise.reject();
 		}
 
@@ -161,12 +218,15 @@ class App extends Component<IProps, IState> {
 		this.audioAnalyser = this.audioContext.createAnalyser();
 		this.audioAnalyser.minDecibels = -90;
 		this.audioAnalyser.maxDecibels = -30;
+		this.audioAnalyser.fftSize = this.ANALYSER_FFT_SIZE;
+		this.audioAnalyser.smoothingTimeConstant = this.ANALYSER_SMOOTHING;
+		this.audioBufferLength = this.audioAnalyser.frequencyBinCount;
 
 		// Get the audio stream from user's microphone
 		try {
 			this.audioStream = await navigator.mediaDevices.getUserMedia({audio:true});
 		} catch(e) {
-			console.error("[setupAudio] failed");
+			DEBUG && console.error("[setupAudio] failed");
 			throw(e);
 		}
 
@@ -175,45 +235,128 @@ class App extends Component<IProps, IState> {
 		audioSourceNode.connect(this.audioAnalyser);
 		
 		// Capture AnalyserNode data
-		this.audioAnalyser.fftSize = this.FFT_SIZE;
-		this.audioBufferLength = this.audioAnalyser.frequencyBinCount;
 		this.audioDataArray = new Uint8Array(this.audioBufferLength);
 
 		return Promise.resolve();
 	}
 
-	drawStep(index: number, xStart: number, yStart: number, xEnd: number, yEnd: number, a: number) {
+	getRectParams(i: number, xOffset: number = 0): { x: number, y: number, w: number, h: number } | undefined {
 		// Mind requestAnimationFrame!
-		if (!this.canvasContext) {
-			console.error(`[drawRect] failed \n canvasContext: ${this.canvasContext}`);
+
+		if (!this.audioBufferLength || !this.audioDataArray || !this.canvasElement) {
+			return;
+		}
+		
+		let maxHeight = 0,
+			maxWidth = 0,
+			byteData = 0,
+			w = 0,
+			h = 0,
+			x = 0,
+			y = 0;
+
+		maxHeight = this.canvasElement.height;
+		maxWidth = this.canvasElement.width - xOffset;
+		byteData = this.audioDataArray[i]; // 0 - 255
+		w = Math.ceil(maxWidth / this.audioBufferLength);
+		x = xOffset + w * i;
+		h = Math.round(byteData / this.MAX_BYTE_DATA * this.VERTICAL_ZOOM * maxHeight);
+
+		if (this.VFX.reflectVertical) {
+			y = Math.round((maxHeight - h) / 2);
+		} else {
+			y = maxHeight - h;
+		}
+
+		return { x, y, w, h };
+	}
+
+	drawStep(index: number, alpha: number) {
+		// Mind requestAnimationFrame!
+
+		if (!this.canvasContext || !this.canvasElement) {
+			return;
+		}
+		
+		let rectParams;
+		if (this.VFX.reflectHorizontal) {
+			rectParams = this.getRectParams(index, this.canvasElement.width / 2);
+		} else {
+			rectParams = this.getRectParams(index);
+		}
+
+		if (!rectParams) {
+			this.debugger.log('[drawVisuals] Could not get rectParams');
 			return;
 		}
 
 		let { r, g, b } = this.colorBufferArray[index],
+			{ x, y, w, h } = rectParams,
 			gradient;
 
-		gradient = this.canvasContext.createLinearGradient(0, yStart, 0, yEnd);
-		gradient.addColorStop(0, 	`rgba(${r}, ${g}, ${b}, ${0})`);
-		gradient.addColorStop(0.8, 	`rgba(${r}, ${g}, ${b}, ${a})`);
-		gradient.addColorStop(1, 	`rgba(${r}, ${g}, ${b}, ${a/2})`);
+		gradient = this.canvasContext.createLinearGradient(0, y, 0, y+h);
+
+		if (this.VFX.reflectVertical) {
+			gradient.addColorStop(0, 	`rgba(${r}, ${g}, ${b}, ${alpha/4})`);
+			gradient.addColorStop(0.5,	`rgba(${r}, ${g}, ${b}, ${alpha})`);
+			gradient.addColorStop(0.5,	`rgba(${r}, ${g}, ${b}, ${alpha/2})`);
+			gradient.addColorStop(1, 	`rgba(${r}, ${g}, ${b}, ${0})`);
+		} else {
+			gradient.addColorStop(0, 	`rgba(${r}, ${g}, ${b}, ${alpha/4})`);
+			gradient.addColorStop(0.8, 	`rgba(${r}, ${g}, ${b}, ${alpha})`);
+		}
+
 		this.canvasContext.fillStyle = gradient;
-		this.canvasContext.fillRect(xStart, yStart, xEnd, yEnd);
+		this.canvasContext.fillRect(x, y, w, h);
+
+		if (this.VFX.reflectHorizontal) {
+			this.canvasContext.fillRect((this.canvasElement.width - x - w), y, w, h);
+		}
+	}
+
+	drawEqualizer(){
+		// Mind requestAnimationFrame!
+
+		if (!this.audioDataArray || !this.audioBufferLength) {
+			return;
+		}
+
+		// Calculate the average volume
+		let averageVolume = Math.round(this.audioDataArray.reduce((accumulator, currentValue) => accumulator + currentValue) / this.audioDataArray.length);
+		let alpha = this.ALPHA_MIN + (averageVolume / 255) * (1 - this.ALPHA_MIN);
+		
+		// Define position for each slice
+		for(let i = 0; i < this.audioBufferLength; i++) {
+			// Draw rectangle
+			this.drawStep(i, alpha);
+		}
+
+		if (DEBUG) {
+			this.showAudioBufferIndex();
+		}
+	}
+
+	drawBackground() {
+		// Mind requestAnimationFrame!
+
+		if (!this.canvasContext || !this.canvasElement) {
+			return;
+		}
+		
+		let gradient;
+		
+		gradient = this.canvasContext.createLinearGradient(0, 0, this.canvasElement.width, this.canvasElement.height);
+		gradient.addColorStop(0, this.Color.parse(this.Color.darken(this.colorBufferArray[0], 75)));
+		gradient.addColorStop(1, this.Color.parse(this.Color.darken(this.colorBufferArray[this.colorBufferLength-1], 95)));
+		this.canvasContext.fillStyle = gradient;
+		this.canvasContext.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 	}
 
 	drawLoop() {
 		// Mind requestAnimationFrame!
-		let drawFrame,
-			xStart = 0,
-			xEnd = 0,
-			yStart = 0,
-			yEnd = 0,
-			volume = 0,
-			averageVolume = 0,
-			gradient;
 
-		// Check if all is present
 		if (!this.audioAnalyser || !this.audioBufferLength || !this.audioDataArray || !this.canvasContext || !this.canvasElement) {
-			console.error(`
+			DEBUG && console.log(`
 				[drawVisuals] failed
 				audioAnalyser: ${this.audioAnalyser}
 				audioBufferLength: ${this.audioBufferLength}
@@ -224,9 +367,11 @@ class App extends Component<IProps, IState> {
 			return;
 		}
 
+		let drawFrame;
+
 		// Stop drawing, eg. on pause
 		if (!this.state.isPlaying) {
-			console.log('[drawVisuals] Stop drawing');
+			DEBUG && console.log('[drawVisuals] Stop drawing');
 			if (drawFrame) {
 				window.cancelAnimationFrame(drawFrame);
 			}
@@ -242,56 +387,71 @@ class App extends Component<IProps, IState> {
 		// Clear canvas
 		this.canvasContext.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 
-		// Background
-		gradient = this.canvasContext.createLinearGradient(this.canvasElement.width, 0, 0, this.canvasElement.height);
-		gradient.addColorStop(1, this.Color.parse(this.Color.darken(this.colorBufferArray[0], 75)));
-		gradient.addColorStop(0, this.Color.parse(this.Color.darken(this.colorBufferArray[this.colorBufferLength-1], 95)));
-		this.canvasContext.fillStyle = gradient;
-		this.canvasContext.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+		this.drawBackground();
+		this.drawEqualizer();
+	}
 
-		// Determine the width of each segment of the line
-		xEnd = Math.ceil(this.canvasElement.width / this.audioBufferLength);
+	showAudioBufferIndex() {
+		// Mind requestAnimationFrame!
+
+		if (!this.canvasElement || !this.audioBufferLength || !this.canvasContext) {
+			return;
+		}
+
+		let w = Math.ceil(this.canvasElement.width / this.audioBufferLength);
+		let y = this.canvasElement.height / 2;
+		let x = 0;
+		this.canvasContext.font = '9px Arial';
+		this.canvasContext.fillStyle = 'rgba(255,255,255,0.5)';
 		
-		// Define position for each slice
-		xStart = 0;
-		averageVolume = this.audioDataArray[Math.round(this.FFT_SIZE / 8)];
-		for(var i = 0; i < this.audioBufferLength; i++) {
-			volume = this.audioDataArray[i]; // 0 - 255
-			yStart = this.canvasElement.height - volume / 255 * this.canvasElement.height;
-			yEnd = this.canvasElement.height;
-
-			// Draw rectangle
-			this.drawStep(
-				i,
-				xStart, yStart, xEnd, yEnd, 
-				(0.25 + (averageVolume / 255) / 4 * 3)
-			);
-
-			// Remember where to draw the next one
-			xStart += xEnd;
+		for(let i = 0; i < this.audioBufferLength; i++) {
+			this.canvasContext.fillText(i.toString(), x, y);
+			x += w;
 		}
 	}
 
 	setupVisuals() {
-		console.log('[setupVisuals] called');
+		DEBUG && console.log('[setupVisuals] called');
+
+		// Get canvas element and context
 		this.canvasElement = this.canvasRef.current;
 		this.canvasContext = this.canvasElement ? this.canvasElement.getContext("2d") : null;
 		
 		// Check if all is present
 		if (!this.canvasElement || !this.canvasContext) {
-			console.error("[setupVisuals] failed");
+			DEBUG && console.error("[setupVisuals] failed");
 			return;
 		}
 	}
 
+	play() {
+		this.setState({
+			isPlaying: true
+		}, () =>  { 
+			this.drawLoop();
+			this.colorRotateLoop();
+		});
+	}
+
+	pause() {
+		this.setState({
+			isPlaying: true
+		}, () =>  { 
+			this.drawLoop();
+			this.colorRotateLoop();
+		});
+	}
+
 	handleChangePlayPause() {
-		console.log('[handleChangePlayPause] called');
+		DEBUG && console.log('[handleChangePlayPause] called');
+
 		if (this.state.initFailed) {
+			// Reset state and init again
 			this.setState({
 				initFailed: false,
 				isPlaying: true,
 			}, () =>  { 
-				this.init()
+				this.init();
 			});
 		} else {
 			this.setState({
@@ -303,14 +463,33 @@ class App extends Component<IProps, IState> {
 		}
 	}
 
+	handleCanvasClick(event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
+		DEBUG && console.log('[handleCanvasClick] called');
+
+		this.handleChangePlayPause();
+
+		if (DEBUG) {
+			if (!this.canvasElement || !this.audioBufferLength) {
+				return;
+			}
+			let sliceWidth = this.canvasElement.width / this.audioBufferLength;
+			let i = Math.floor(event.clientX / sliceWidth);
+			let rectParams = this.getRectParams(i);
+			if (rectParams) {
+				console.log(`Clicked [${i}]`, rectParams);
+			}
+		}
+	}
+
 	init() {
-		console.log('[init] called');
+		DEBUG && console.log('[init] called');
+
 		this.setupColorRotate();
 		this.setupAudio().then(() => {
 			this.setupVisuals();
 			this.drawLoop();
 		}, () => {
-			console.log('[init] Could not initiate automatically');
+			DEBUG && console.log('[init] Could not initiate automatically');
 		});
 	}
 
@@ -324,9 +503,11 @@ class App extends Component<IProps, IState> {
 		return (
 			<div className="App">
 				<div className="Content">
-				<PlayPause isPlaying={this.state.isPlaying} onChangePlayPause={this.handleChangePlayPause} />
+					{ (this.state.initFailed || !this.state.isPlaying) && 
+						<p className="StartupHint">Click anywhere to start the visualizer</p>
+					}
 				</div>
-				<canvas ref={this.canvasRef} width={window.outerWidth} height={window.outerHeight} className="Visualizer" />
+				<canvas ref={this.canvasRef} width={window.outerWidth} height={window.outerHeight} className="Visualizer" onClick={this.handleCanvasClick} />
 			</div>
 		);
 	}

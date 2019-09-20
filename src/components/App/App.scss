@@ -7,6 +7,18 @@
 	z-index: 200;
 }
 
+@keyframes fadeout {
+    from {opacity: 1;}
+    to {opacity: 0;}
+}
+
+.Fadeout {
+	animation-name: fadeout;
+	animation-duration: 1s;
+	animation-delay: 3s;
+	animation-fill-mode: forwards;
+}
+
 .Visualizer {
 	position: fixed;
 	top: 0;
