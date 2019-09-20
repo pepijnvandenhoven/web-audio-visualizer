@@ -4,6 +4,7 @@ import { Color, IColorBufferItem } from '../../helpers/Color';
 
 const DEBUG = false;
 
+//#region Interfaces
 interface IVisualEffects {
 	reflectHorizontal: boolean;
 	reflectVertical: boolean;
@@ -20,7 +21,10 @@ interface IState {
 	isPlaying: boolean;
 	initFailed: boolean;
 }
+//#endregion
 
+
+//#region Helper classes
 class DebuggerWithLimit {
 	limit: number;
 	private count: number = 0;
@@ -45,21 +49,20 @@ class DebuggerWithLimit {
 		this.count = 0;
 	}
 }
+//#endregion
 
 class App extends Component<IProps, IState> {
-	// Debug
-	debugger = new DebuggerWithLimit(100);
-
-	// General settings
+	//#region Settings properties
+	// General
 	private readonly AUTO_PLAY = true;
 
-	// Audio settings
+	// Audio
 	private readonly ANALYSER_FFT_SIZE = Math.pow(2, 6); // min: Math.pow(2, 5)
 	private readonly ANALYSER_SMOOTHING = 0.85; // default: 0.8
 	private readonly SAMPLE_RATE = 38000; // default: 44100
 	private readonly MAX_BYTE_DATA = 255; // default: 255
 	
-	// Draw settings
+	// Draw
 	private readonly VERTICAL_ZOOM = 1;
 	private readonly COLOR_RANGE = 0.2;
 	private readonly COLOR_MIN = 0;
@@ -69,10 +72,14 @@ class App extends Component<IProps, IState> {
 		reflectHorizontal: true,
 		reflectVertical: true
 	};
+	//#endregion
 
-	// Helpers
+	//#region Helper properties
 	Color = new Color();
+	Debugger = new DebuggerWithLimit(100);
+	//#endregion
 
+	//#region Other properties
 	audioRef: RefObject<HTMLAudioElement>;
 	canvasRef: RefObject<HTMLCanvasElement>;
 
@@ -100,6 +107,7 @@ class App extends Component<IProps, IState> {
 		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
 		up: true
 	};
+	//#endregion
 	
 	constructor(props: IProps) {
 		super(props);
@@ -118,6 +126,7 @@ class App extends Component<IProps, IState> {
 		this.handleCanvasClick = this.handleCanvasClick.bind(this);
 	}
 
+	//#region Color rotate
 	rotateColor(color: IColorRotateObject) {
 		// Mind requestAnimationFrame!
 
@@ -128,7 +137,7 @@ class App extends Component<IProps, IState> {
 		color.value = color.up ? color.value+step : color.value-step;
 		return color;
 	}
-	
+
 	colorRotateStep() {
 		// Mind requestAnimationFrame!
 
@@ -191,7 +200,9 @@ class App extends Component<IProps, IState> {
 
 		this.colorRotateLoop();
 	}
+	//#endregion
 
+	//#region Audio setup
 	async setupAudio(): Promise<any> {
 		DEBUG && console.log('[setupAudio] called');
 
@@ -239,7 +250,9 @@ class App extends Component<IProps, IState> {
 
 		return Promise.resolve();
 	}
+	//#endregion
 
+	//#region Draw equalizer
 	getRectParams(i: number, xOffset: number = 0): { x: number, y: number, w: number, h: number } | undefined {
 		// Mind requestAnimationFrame!
 
@@ -286,7 +299,7 @@ class App extends Component<IProps, IState> {
 		}
 
 		if (!rectParams) {
-			this.debugger.log('[drawVisuals] Could not get rectParams');
+			this.Debugger.log('[drawVisuals] Could not get rectParams');
 			return;
 		}
 
@@ -336,6 +349,25 @@ class App extends Component<IProps, IState> {
 		}
 	}
 
+	showAudioBufferIndex() {
+		// Mind requestAnimationFrame!
+
+		if (!this.canvasElement || !this.audioBufferLength || !this.canvasContext) {
+			return;
+		}
+
+		let w = Math.ceil(this.canvasElement.width / this.audioBufferLength);
+		let y = this.canvasElement.height / 2;
+		let x = 0;
+		this.canvasContext.font = '9px Arial';
+		this.canvasContext.fillStyle = 'rgba(255,255,255,0.5)';
+		
+		for(let i = 0; i < this.audioBufferLength; i++) {
+			this.canvasContext.fillText(i.toString(), x, y);
+			x += w;
+		}
+	}
+
 	drawBackground() {
 		// Mind requestAnimationFrame!
 
@@ -351,7 +383,9 @@ class App extends Component<IProps, IState> {
 		this.canvasContext.fillStyle = gradient;
 		this.canvasContext.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 	}
+	//#endregion
 
+	//#region Canvas setup
 	drawLoop() {
 		// Mind requestAnimationFrame!
 
@@ -391,26 +425,7 @@ class App extends Component<IProps, IState> {
 		this.drawEqualizer();
 	}
 
-	showAudioBufferIndex() {
-		// Mind requestAnimationFrame!
-
-		if (!this.canvasElement || !this.audioBufferLength || !this.canvasContext) {
-			return;
-		}
-
-		let w = Math.ceil(this.canvasElement.width / this.audioBufferLength);
-		let y = this.canvasElement.height / 2;
-		let x = 0;
-		this.canvasContext.font = '9px Arial';
-		this.canvasContext.fillStyle = 'rgba(255,255,255,0.5)';
-		
-		for(let i = 0; i < this.audioBufferLength; i++) {
-			this.canvasContext.fillText(i.toString(), x, y);
-			x += w;
-		}
-	}
-
-	setupVisuals() {
+	setupCanvas() {
 		DEBUG && console.log('[setupVisuals] called');
 
 		// Get canvas element and context
@@ -423,25 +438,9 @@ class App extends Component<IProps, IState> {
 			return;
 		}
 	}
+	//#endregion
 
-	play() {
-		this.setState({
-			isPlaying: true
-		}, () =>  { 
-			this.drawLoop();
-			this.colorRotateLoop();
-		});
-	}
-
-	pause() {
-		this.setState({
-			isPlaying: true
-		}, () =>  { 
-			this.drawLoop();
-			this.colorRotateLoop();
-		});
-	}
-
+	//#region Event handlers
 	handleChangePlayPause() {
 		DEBUG && console.log('[handleChangePlayPause] called');
 
@@ -486,13 +485,15 @@ class App extends Component<IProps, IState> {
 
 		this.setupColorRotate();
 		this.setupAudio().then(() => {
-			this.setupVisuals();
+			this.setupCanvas();
 			this.drawLoop();
 		}, () => {
 			DEBUG && console.log('[init] Could not initiate automatically');
 		});
 	}
+	//#endregion
 
+	//#region React events
 	componentDidMount() {
 		if (this.state.isPlaying) {
 			this.init();
@@ -511,6 +512,7 @@ class App extends Component<IProps, IState> {
 			</div>
 		);
 	}
+	//#endregion
 }
 
 export default App;
