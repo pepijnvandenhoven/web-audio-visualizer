@@ -1,18 +1,17 @@
 import React, { Component, RefObject } from 'react';
+// import SimplexNoise from 'simplex-noise';
 import "./App.scss";
-import { Color, IColorBufferItem } from '../../helpers/Color';
+import { DebuggerWithLimit, DEBUG } from '../../helpers/Debugger';
+import { Colors } from '../../helpers/Colors';
 
-const DEBUG = false;
+const colors = new Colors();
+const debuggerWithLimit = new DebuggerWithLimit(3);
+// const simplex = new SimplexNoise();
 
 //#region Interfaces
 interface IVisualEffects {
 	reflectHorizontal: boolean;
 	reflectVertical: boolean;
-}
-
-interface IColorRotateObject {
-	value: number;
-	up: boolean;
 }
 
 interface IProps {}
@@ -23,37 +22,11 @@ interface IState {
 }
 //#endregion
 
-
-//#region Helper classes
-class DebuggerWithLimit {
-	limit: number;
-	private count: number = 0;
-
-	constructor(limit: number) {
-		DEBUG && console.log('[DebuggerWithLimit] Constructor called');
-		this.limit = limit;
-	}
-
-	log(...args: any) {
-		this.count++;
-		if (this.count > this.limit) {
-			return;
-		}
-		console.log(...args);
-		if (this.count === this.limit) {
-			console.error('[DebuggerWithLimit] Debugger limit reached!');
-		}
-	}
-	
-	reset() {
-		this.count = 0;
-	}
-}
-//#endregion
-
 class App extends Component<IProps, IState> {
 	//#region Settings properties
 	// General
+	private readonly CANVAS_WIDTH = window.innerWidth;
+	private readonly CANVAS_HEIGHT = window.innerHeight;
 	private readonly AUTO_PLAY = true;
 
 	// Audio
@@ -62,12 +35,11 @@ class App extends Component<IProps, IState> {
 	private readonly SAMPLE_RATE = 38000; // default: 44100
 	private readonly MAX_BYTE_DATA = 255; // default: 255
 	
-	// Draw
+	// Visuals: Equalizer
 	private readonly VERTICAL_ZOOM = 1;
-	private readonly COLOR_RANGE = 0.2;
-	private readonly COLOR_MIN = 0;
-	private readonly COLOR_MAX = 255;
 	private readonly ALPHA_MIN = 0.7;
+	private readonly EQ_BAR_WIDTH = 10; // default: 0
+	private readonly EQ_BAR_SPACING = true;
 	private readonly VFX: IVisualEffects = {
 		reflectHorizontal: true,
 		reflectVertical: true
@@ -75,8 +47,7 @@ class App extends Component<IProps, IState> {
 	//#endregion
 
 	//#region Helper properties
-	Color = new Color();
-	Debugger = new DebuggerWithLimit(100);
+	colorBufferLength = this.ANALYSER_FFT_SIZE / 2;
 	//#endregion
 
 	//#region Other properties
@@ -91,22 +62,6 @@ class App extends Component<IProps, IState> {
 	
 	canvasContext: CanvasRenderingContext2D | null = null;
 	canvasElement: HTMLCanvasElement | null = null;
-
-	readonly colorBufferLength = this.ANALYSER_FFT_SIZE / 2;
-	readonly colorStep = 255 / this.colorBufferLength * this.COLOR_RANGE;
-	colorBufferArray: Array<IColorBufferItem> = [];
-	rotateR: IColorRotateObject = {
-		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
-		up: true
-	};
-	rotateG: IColorRotateObject = {
-		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
-		up: false
-	};
-	rotateB: IColorRotateObject = {
-		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
-		up: true
-	};
 	//#endregion
 	
 	constructor(props: IProps) {
@@ -121,90 +76,13 @@ class App extends Component<IProps, IState> {
 		this.canvasRef = React.createRef();
 
 		this.drawLoop = this.drawLoop.bind(this);
-		this.colorRotateLoop = this.colorRotateLoop.bind(this);
-		this.handleChangePlayPause = this.handleChangePlayPause.bind(this);
+		this.togglePlayPause = this.togglePlayPause.bind(this);
 		this.handleCanvasClick = this.handleCanvasClick.bind(this);
 	}
 
-	//#region Color rotate
-	rotateColor(color: IColorRotateObject) {
-		// Mind requestAnimationFrame!
-
-		let step = this.colorStep;
-		if((color.value >= this.COLOR_MAX && color.up) || (color.value <= this.COLOR_MIN && !color.up)) {
-			color.up = !color.up;
-		}
-		color.value = color.up ? color.value+step : color.value-step;
-		return color;
-	}
-
-	colorRotateStep() {
-		// Mind requestAnimationFrame!
-
-		this.rotateR = this.rotateColor(this.rotateR);
-		this.rotateG = this.rotateColor(this.rotateG);
-		this.rotateB = this.rotateColor(this.rotateB);
-	}
-
-	colorRotateLoop() {
-		// Mind requestAnimationFrame!
-
-		let colorRotateFrame;
-
-		// Stop drawing, eg. on pause
-		if (!this.state.isPlaying) {
-			DEBUG && console.log('[colorRotateAnimate] Stop drawing');
-			if (colorRotateFrame) {
-				window.cancelAnimationFrame(colorRotateFrame);
-			}
-			return;
-		}
-		
-		// Keep looping the color rotate loop once it has been started
-		colorRotateFrame = requestAnimationFrame(this.colorRotateLoop);
-
-		// Assign a new color to each frequency range
-		let len = this.colorBufferLength-1;
-		for (let i = len; i > -1; i--) {
-			let prevColor: IColorBufferItem;
-			if (i > 0) {
-				prevColor = this.colorBufferArray[i-1];
-				this.rotateR.value = prevColor.r;
-				this.rotateG.value = prevColor.g;
-				this.rotateB.value = prevColor.b;
-			} else {
-				// Determine a new color of the first item
-				this.colorRotateStep();
-			}
-			this.colorBufferArray[i] = {
-				r: this.rotateR.value,
-				g: this.rotateG.value,
-				b: this.rotateB.value
-			};
-		}
-	}
-
-	setupColorRotate() {
-		DEBUG && console.log('[setupColorRotate] called');
-
-		// Assign a color to each frequency range
-		let len = this.colorBufferLength-1;
-		for (let i = len; i > -1; i--) {
-			this.colorRotateStep();
-			this.colorBufferArray.unshift({
-				r: this.rotateR.value,
-				g: this.rotateG.value,
-				b: this.rotateB.value
-			});
-		}
-
-		this.colorRotateLoop();
-	}
-	//#endregion
-
 	//#region Audio setup
-	async setupAudio(): Promise<any> {
-		DEBUG && console.log('[setupAudio] called');
+	async initAudio(): Promise<any> {
+		DEBUG && console.log('[initAudio] called');
 
 		let audioSourceNode;
 		
@@ -220,7 +98,7 @@ class App extends Component<IProps, IState> {
 				isPlaying: false,
 			});
 			
-			DEBUG && console.log('[setupAudio] Could not initiate AudioContext');
+			DEBUG && console.log('[initAudio] Could not initiate AudioContext');
 
 			return Promise.reject();
 		}
@@ -237,7 +115,7 @@ class App extends Component<IProps, IState> {
 		try {
 			this.audioStream = await navigator.mediaDevices.getUserMedia({audio:true});
 		} catch(e) {
-			DEBUG && console.error("[setupAudio] failed");
+			DEBUG && console.error("[initAudio] failed");
 			throw(e);
 		}
 
@@ -253,7 +131,7 @@ class App extends Component<IProps, IState> {
 	//#endregion
 
 	//#region Draw equalizer
-	getRectParams(i: number, xOffset: number = 0): { x: number, y: number, w: number, h: number } | undefined {
+	getEqualizerBarParams(i: number, xOffset: number = 0): { x: number, y: number, w: number, h: number } | undefined {
 		// Mind requestAnimationFrame!
 
 		if (!this.audioBufferLength || !this.audioDataArray || !this.canvasElement) {
@@ -263,6 +141,7 @@ class App extends Component<IProps, IState> {
 		let maxHeight = 0,
 			maxWidth = 0,
 			byteData = 0,
+			maxRectWidth = 0,
 			w = 0,
 			h = 0,
 			x = 0,
@@ -271,12 +150,17 @@ class App extends Component<IProps, IState> {
 		maxHeight = this.canvasElement.height;
 		maxWidth = this.canvasElement.width - xOffset;
 		byteData = this.audioDataArray[i]; // 0 - 255
-		w = Math.ceil(maxWidth / this.audioBufferLength);
-		x = xOffset + w * i;
+		maxRectWidth = Math.ceil(maxWidth / this.audioBufferLength);
+		w = this.EQ_BAR_WIDTH ? this.EQ_BAR_WIDTH : maxRectWidth;
+		if (this.EQ_BAR_SPACING) {
+			x = xOffset + w * i + ((maxRectWidth - w) * (i+0.5));
+		} else {
+			x = xOffset + w * i;
+		}
 		h = Math.round(byteData / this.MAX_BYTE_DATA * this.VERTICAL_ZOOM * maxHeight);
 
 		if (this.VFX.reflectVertical) {
-			y = Math.round((maxHeight - h) / 2);
+			y = (maxHeight - h) / 2;
 		} else {
 			y = maxHeight - h;
 		}
@@ -284,7 +168,7 @@ class App extends Component<IProps, IState> {
 		return { x, y, w, h };
 	}
 
-	drawStep(index: number, alpha: number) {
+	drawFrameEqualizerBar(index: number, alpha: number) {
 		// Mind requestAnimationFrame!
 
 		if (!this.canvasContext || !this.canvasElement) {
@@ -293,17 +177,17 @@ class App extends Component<IProps, IState> {
 		
 		let rectParams;
 		if (this.VFX.reflectHorizontal) {
-			rectParams = this.getRectParams(index, this.canvasElement.width / 2);
+			rectParams = this.getEqualizerBarParams(index, this.canvasElement.width / 2);
 		} else {
-			rectParams = this.getRectParams(index);
+			rectParams = this.getEqualizerBarParams(index);
 		}
 
 		if (!rectParams) {
-			this.Debugger.log('[drawVisuals] Could not get rectParams');
+			debuggerWithLimit.log('[drawVisuals] Could not get rectParams');
 			return;
 		}
 
-		let { r, g, b } = this.colorBufferArray[index],
+		let { r, g, b } = colors.colorBufferArray[index],
 			{ x, y, w, h } = rectParams,
 			gradient;
 
@@ -327,7 +211,7 @@ class App extends Component<IProps, IState> {
 		}
 	}
 
-	drawEqualizer(){
+	drawFrameEqualizer(){
 		// Mind requestAnimationFrame!
 
 		if (!this.audioDataArray || !this.audioBufferLength) {
@@ -335,40 +219,20 @@ class App extends Component<IProps, IState> {
 		}
 
 		// Calculate the average volume
+		// TODO: use gainNode instead?
 		let averageVolume = Math.round(this.audioDataArray.reduce((accumulator, currentValue) => accumulator + currentValue) / this.audioDataArray.length);
 		let alpha = this.ALPHA_MIN + (averageVolume / 255) * (1 - this.ALPHA_MIN);
 		
 		// Define position for each slice
 		for(let i = 0; i < this.audioBufferLength; i++) {
 			// Draw rectangle
-			this.drawStep(i, alpha);
-		}
-
-		if (DEBUG) {
-			this.showAudioBufferIndex();
+			this.drawFrameEqualizerBar(i, alpha);
 		}
 	}
+	//#endregion
 
-	showAudioBufferIndex() {
-		// Mind requestAnimationFrame!
-
-		if (!this.canvasElement || !this.audioBufferLength || !this.canvasContext) {
-			return;
-		}
-
-		let w = Math.ceil(this.canvasElement.width / this.audioBufferLength);
-		let y = this.canvasElement.height / 2;
-		let x = 0;
-		this.canvasContext.font = '9px Arial';
-		this.canvasContext.fillStyle = 'rgba(255,255,255,0.5)';
-		
-		for(let i = 0; i < this.audioBufferLength; i++) {
-			this.canvasContext.fillText(i.toString(), x, y);
-			x += w;
-		}
-	}
-
-	drawBackground() {
+	//#region Draw generic
+	drawFrameBackground() {
 		// Mind requestAnimationFrame!
 
 		if (!this.canvasContext || !this.canvasElement) {
@@ -378,8 +242,8 @@ class App extends Component<IProps, IState> {
 		let gradient;
 		
 		gradient = this.canvasContext.createLinearGradient(0, 0, this.canvasElement.width, this.canvasElement.height);
-		gradient.addColorStop(0, this.Color.parse(this.Color.darken(this.colorBufferArray[0], 75)));
-		gradient.addColorStop(1, this.Color.parse(this.Color.darken(this.colorBufferArray[this.colorBufferLength-1], 95)));
+		gradient.addColorStop(0, colors.parse(colors.darken(colors.colorBufferArray[0], 75)));
+		gradient.addColorStop(1, colors.parse(colors.darken(colors.colorBufferArray[this.colorBufferLength-1], 95)));
 		this.canvasContext.fillStyle = gradient;
 		this.canvasContext.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 	}
@@ -421,12 +285,12 @@ class App extends Component<IProps, IState> {
 		// Clear canvas
 		this.canvasContext.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 
-		this.drawBackground();
-		this.drawEqualizer();
+		this.drawFrameBackground();
+		this.drawFrameEqualizer();
 	}
 
-	setupCanvas() {
-		DEBUG && console.log('[setupVisuals] called');
+	initCanvas() {
+		DEBUG && console.log('[initCanvas] called');
 
 		// Get canvas element and context
 		this.canvasElement = this.canvasRef.current;
@@ -434,14 +298,14 @@ class App extends Component<IProps, IState> {
 		
 		// Check if all is present
 		if (!this.canvasElement || !this.canvasContext) {
-			DEBUG && console.error("[setupVisuals] failed");
+			DEBUG && console.error("[initCanvas] failed");
 			return;
 		}
 	}
 	//#endregion
 
 	//#region Event handlers
-	handleChangePlayPause() {
+	togglePlayPause() {
 		DEBUG && console.log('[handleChangePlayPause] called');
 
 		if (this.state.initFailed) {
@@ -457,7 +321,7 @@ class App extends Component<IProps, IState> {
 				isPlaying: !this.state.isPlaying
 			}, () =>  { 
 				this.drawLoop();
-				this.colorRotateLoop();
+				colors.toggleLoop();
 			});
 		}
 	}
@@ -465,36 +329,25 @@ class App extends Component<IProps, IState> {
 	handleCanvasClick(event: React.MouseEvent<HTMLCanvasElement, MouseEvent>) {
 		DEBUG && console.log('[handleCanvasClick] called');
 
-		this.handleChangePlayPause();
-
-		if (DEBUG) {
-			if (!this.canvasElement || !this.audioBufferLength) {
-				return;
-			}
-			let sliceWidth = this.canvasElement.width / this.audioBufferLength;
-			let i = Math.floor(event.clientX / sliceWidth);
-			let rectParams = this.getRectParams(i);
-			if (rectParams) {
-				console.log(`Clicked [${i}]`, rectParams);
-			}
-		}
+		this.togglePlayPause();
 	}
 
 	init() {
 		DEBUG && console.log('[init] called');
-
-		this.setupColorRotate();
-		this.setupAudio().then(() => {
-			this.setupCanvas();
+		
+		this.initAudio().then(() => {
+			this.initCanvas();
 			this.drawLoop();
+			colors.startLoop();
 		}, () => {
 			DEBUG && console.log('[init] Could not initiate automatically');
 		});
 	}
 	//#endregion
-
+	
 	//#region React events
 	componentDidMount() {
+		colors.initRotate(this.colorBufferLength);
 		if (this.state.isPlaying) {
 			this.init();
 		}
@@ -508,7 +361,7 @@ class App extends Component<IProps, IState> {
 						<p className="StartupHint">Click anywhere to start the visualizer</p>
 					}
 				</div>
-				<canvas ref={this.canvasRef} width={window.outerWidth} height={window.outerHeight} className="Visualizer" onClick={this.handleCanvasClick} />
+				<canvas ref={this.canvasRef} width={this.CANVAS_WIDTH} height={this.CANVAS_HEIGHT} className="Visualizer" onClick={this.handleCanvasClick} />
 			</div>
 		);
 	}
