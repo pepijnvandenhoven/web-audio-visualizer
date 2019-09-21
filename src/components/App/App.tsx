@@ -38,7 +38,7 @@ class App extends Component<IProps, IState> {
 	// Visuals: Equalizer
 	private readonly VERTICAL_ZOOM = 1;
 	private readonly ALPHA_MIN = 0.7;
-	private readonly EQ_BAR_WIDTH = 10; // default: 0
+	private readonly EQ_BAR_WIDTH = 5; // default: 0
 	private readonly EQ_BAR_SPACING = true;
 	private readonly VFX: IVisualEffects = {
 		reflectHorizontal: true,

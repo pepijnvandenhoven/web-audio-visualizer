@@ -1,8 +1,6 @@
 import { DebuggerWithLimit, DEBUG } from './Debugger';
-import SimplexNoise from 'simplex-noise';
 
 const debuggerWithLimit = new DebuggerWithLimit(3);
-const simplex = new SimplexNoise();
 
 export interface IColorBufferItem {
 	r: number;
@@ -19,13 +17,11 @@ export class Colors {
 	private readonly COLOR_MIN = 0;
 	private readonly COLOR_MAX = 255;
 	private readonly COLOR_RANGE = 0.2;
-	private readonly NOISE_STRENGTH = 100;
 	
 	colorBufferArray: Array<IColorBufferItem> = [];
 	colorBufferLength = 0;
-	colorStep = 10;
+	colorStep = 0;
 	isLooping = false;
-	tick = 0;
 
 	rotateR: IColorRotateObject = {
 		value: Math.floor(Math.random() * (this.COLOR_MAX - this.COLOR_MIN)) + this.COLOR_MIN,
@@ -122,7 +118,6 @@ export class Colors {
 				b: this.rotateB.value
 			};
 		}
-		this.tick++;
 	}
 
 	stopLoop() {
