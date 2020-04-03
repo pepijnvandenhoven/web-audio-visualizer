@@ -1,0 +1,14 @@
+{
+  "name": "web-audio-visualizer",
+  "version": "1.0.0",
+  "description": "An audio visualizer",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://pepvdh@bitbucket.org/pepvdh/web-audio-visualizer.git"
+  },
+  "author": "Pepijn van den Hoven",
+  "license": "MIT",
+  "homepage": "https://bitbucket.org/pepvdh/web-audio-visualizer#readme"
+}
