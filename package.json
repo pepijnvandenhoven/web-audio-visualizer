@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "An audio visualizer",
   "scripts": {
+    "serve": "concurrently --kill-others \"npm run build\" \"live-server --open=dist/ --watch=dist/\"",
     "build": "npm run js && npm run static",
-    "js": "npx rollup -c",
     "static": "copyfiles -u 2 src/static/index.html dist",
-    "serve": "npm run build && npx http-server dist/ --silent -o"
+    "js": "rollup -c --watch"
   },
   "repository": {
     "type": "git",
@@ -17,6 +17,7 @@
   "homepage": "https://bitbucket.org/pepvdh/web-audio-visualizer#readme",
   "devDependencies": {
     "@rollup/plugin-typescript": "^4.0.0",
+    "concurrently": "^5.1.0",
     "copyfiles": "^2.2.0",
     "http-server": "^0.12.1",
     "rimraf": "^3.0.2",
