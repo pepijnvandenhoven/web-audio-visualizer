@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "An audio visualizer",
   "scripts": {
+    "build": "npm run js && npm run static",
+    "js": "npx rollup -c",
+    "static": "copyfiles -u 2 src/static/index.html dist",
+    "serve": "npm run build && npx http-server dist/ --silent -o"
   },
   "repository": {
     "type": "git",
@@ -10,5 +14,17 @@
   },
   "author": "Pepijn van den Hoven",
   "license": "MIT",
-  "homepage": "https://bitbucket.org/pepvdh/web-audio-visualizer#readme"
+  "homepage": "https://bitbucket.org/pepvdh/web-audio-visualizer#readme",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^4.0.0",
+    "copyfiles": "^2.2.0",
+    "http-server": "^0.12.1",
+    "rimraf": "^3.0.2",
+    "rollup": "^2.3.2",
+    "tslib": "^1.11.1",
+    "typescript": "^3.8.3"
+  },
+  "dependencies": {
+    "three": "^0.115.0"
+  }
 }
