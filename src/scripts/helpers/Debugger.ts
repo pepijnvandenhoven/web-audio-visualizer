@@ -4,13 +4,13 @@ export class DebuggerWithLimit {
 	private count: number = 0;
 
 	constructor(limit: number) {
-		DEBUG && console.log('[DebuggerWithLimit] Constructor called');
+		DEBUG && console.log('[DebuggerWithLimit] Attached');
 		this.limit = limit;
 	}
 
 	private checkCount() {
 		if (this.count === this.limit) {
-			DEBUG && console.warn('[DebuggerWithLimit] Limit reached');
+			DEBUG && console.warn('[DebuggerWithLimit.checkCount] Limit reached');
 		}
 	}
 

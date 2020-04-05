@@ -56,7 +56,7 @@ export class Colors {
 
 	parse(color: IColorBufferItem): string {
 		if (!color) {
-			DEBUG && debuggerWithLimit.warn('[Colors.darken] type of color is', typeof color);
+			DEBUG && debuggerWithLimit.warn('[Colors.parse] type of color is', typeof color);
 			return 'rgb(0,0,0)';
 		}
 		let {r, g, b} = color;
@@ -90,7 +90,7 @@ export class Colors {
 
 		// Stop drawing, eg. on pause
 		if (!this.isLooping) {
-			DEBUG && console.log('[colorRotateAnimate] Stop drawing');
+			DEBUG && console.log('[Colors.rotateLoop] Stop drawing');
 			if (colorRotateFrame) {
 				window.cancelAnimationFrame(colorRotateFrame);
 			}
@@ -121,13 +121,13 @@ export class Colors {
 	}
 
 	stopLoop() {
-		DEBUG && console.log('[stopLoop] called');
+		DEBUG && console.log('[Colors.stopLoop] Called');
 		
 		this.isLooping = false;
 	}
 
 	startLoop() {
-		DEBUG && console.log('[startLoop] called');
+		DEBUG && console.log('[Colors.startLoop] Called');
 
 		if (this.isLooping) {
 			return
@@ -137,14 +137,14 @@ export class Colors {
 	}
 
 	toggleLoop() {
-		DEBUG && console.log('[toggleLoop] called');
+		DEBUG && console.log('[Colors.toggleLoop] Called');
 
 		this.isLooping ? this.stopLoop() : this.startLoop();
 	}
 
 	initRotate(colorBufferLength: number) {
-		DEBUG && console.log(`[initRotate] called`);
-		DEBUG && console.log(`[initRotate] Generating ${colorBufferLength} colors`);
+		DEBUG && console.log(`[Colors.initRotate] Called`);
+		DEBUG && console.log(`[Colors.initRotate] Generating ${colorBufferLength} colors`);
 
 		this.colorBufferLength = colorBufferLength;
 

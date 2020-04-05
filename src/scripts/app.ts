@@ -47,7 +47,7 @@ class App {
 	audioStream?: MediaStream;
 	
 	canvasContext: CanvasRenderingContext2D | null = null;
-	canvasElement: HTMLCanvasElement | null = document.querySelector("canvas#root");
+	canvasElement: HTMLCanvasElement | null = null;
 	//#endregion
 	
 	private state = {
@@ -60,11 +60,13 @@ class App {
 			initFailed: !this.AUTO_PLAY,
 			isPlaying: this.AUTO_PLAY,
 		};
+		this.drawLoop = this.drawLoop.bind(this);
+		this.togglePlayPause = this.togglePlayPause.bind(this);
 	}
 
 	//#region Audio setup
 	async initAudio(): Promise<any> {
-		DEBUG && console.log('[initAudio] called');
+		DEBUG && console.log('[App.initAudio] Called');
 
 		let audioSourceNode;
 		
@@ -78,7 +80,7 @@ class App {
 			this.state.initFailed = true;
 			this.state.isPlaying = false;
 			
-			DEBUG && console.log('[initAudio] Could not initiate AudioContext');
+			DEBUG && console.log('[App.initAudio] Could not initiate AudioContext');
 
 			return Promise.reject();
 		}
@@ -95,7 +97,7 @@ class App {
 		try {
 			this.audioStream = await navigator.mediaDevices.getUserMedia({audio:true});
 		} catch(e) {
-			DEBUG && console.error("[initAudio] failed");
+			DEBUG && console.error("[App.initAudio] Failed");
 			throw(e);
 		}
 
@@ -234,14 +236,16 @@ class App {
 		// Mind requestAnimationFrame!
 
 		if (!this.audioAnalyser || !this.audioBufferLength || !this.audioDataArray || !this.canvasContext || !this.canvasElement) {
-			DEBUG && console.log(`
-				[drawVisuals] failed
-				audioAnalyser: ${this.audioAnalyser}
-				audioBufferLength: ${this.audioBufferLength}
-				audioDataArray: ${this.audioDataArray}
-				canvasContext: ${this.canvasContext}
-				canvasElement: ${this.canvasElement}
-			`);
+			if (DEBUG) {
+				console.error('[App.drawVisuals] Failed');
+				console.groupCollapsed('[App.drawVisuals]');
+				console.log(`audioAnalyser: ${this.audioAnalyser}`);
+				console.log(`audioBufferLength: ${this.audioBufferLength}`);
+				console.log(`audioDataArray: ${this.audioDataArray}`);
+				console.log(`canvasContext: ${this.canvasContext}`);
+				console.log(`canvasElement: ${this.canvasElement}`);
+				console.groupEnd();
+			}
 			return;
 		}
 
@@ -249,7 +253,7 @@ class App {
 
 		// Stop drawing, eg. on pause
 		if (!this.state.isPlaying) {
-			DEBUG && console.log('[drawVisuals] Stop drawing');
+			DEBUG && console.log('[App.drawVisuals] Stop drawing');
 			if (drawFrame) {
 				window.cancelAnimationFrame(drawFrame);
 			}
@@ -270,14 +274,23 @@ class App {
 	}
 
 	initCanvas() {
-		DEBUG && console.log('[initCanvas] called');
+		DEBUG && console.log('[App.initCanvas] Called');
+
+		// Set up canvas element
+		if(!this.canvasElement) {
+			DEBUG && console.log('[App.initCanvas] Creating canvas element');
+			this.canvasElement = document.createElement("canvas")
+			this.canvasElement.width = this.CANVAS_WIDTH;
+			this.canvasElement.height = this.CANVAS_HEIGHT;
+			document.getElementById("root")?.appendChild(this.canvasElement);
+		}
 
 		// Get canvas element and context
 		this.canvasContext = this.canvasElement?.getContext("2d") || null;
 		
 		// Check if all is present
 		if (!this.canvasContext) {
-			DEBUG && console.error("[initCanvas] failed");
+			DEBUG && console.error("[App.initCanvas] Failed");
 			return;
 		}
 	}
@@ -285,7 +298,7 @@ class App {
 
 	//#region Event handlers
 	togglePlayPause() {
-		DEBUG && console.log('[handleChangePlayPause] called');
+		DEBUG && console.log('[App.togglePlayPause] Called');
 
 		if (this.state.initFailed) {
 			// Reset state and init again
@@ -298,33 +311,11 @@ class App {
 			colors.toggleLoop();
 		}
 	}
-
-	handleCanvasClick() {
-		DEBUG && console.log('[handleCanvasClick] called');
-
-		this.togglePlayPause();
-	}
 	//#endregion
 
 	init() {
-		DEBUG && console.log('[init] called');
-		DEBUG && console.log('[init] called');
-		DEBUG && console.log('[init] called');
+		DEBUG && console.log('[App.init] Called');
 
-		if(!this.canvasElement) {
-			DEBUG && console.log('[init] failed');
-			return;
-		}
-
-		// set up canvas element
-		this.canvasElement.width = this.CANVAS_WIDTH;
-		this.canvasElement.height = this.CANVAS_HEIGHT;
-		this.canvasElement.addEventListener("click", () => {
-			this.handleCanvasClick();
-		});
-		document.getElementById("root")?.appendChild(this.canvasElement);
-
-		// go!
 		if (this.state.isPlaying) {
 			colors.initRotate(this.colorBufferLength);
 			this.initAudio().then(() => {
@@ -332,9 +323,12 @@ class App {
 				this.drawLoop();
 				colors.startLoop();
 			}, () => {
-				DEBUG && console.log('[init] Could not initiate automatically');
+				DEBUG && console.log('[App.init] Could not initiate automatically');
 			});
 		}
+
+		document.removeEventListener("click", app.togglePlayPause);
+		document.addEventListener("click", app.togglePlayPause);
 	}
 }
 
