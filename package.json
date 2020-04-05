@@ -4,9 +4,10 @@
   "description": "An audio visualizer",
   "scripts": {
     "serve": "concurrently --kill-others \"npm run build\" \"live-server --open=dist/ --watch=dist/\"",
-    "build": "npm run js && npm run static",
+    "build": "concurrently \"npm run static\" \"npm run scss\" \"npm run js\"",
     "static": "copyfiles -u 2 src/static/index.html dist",
-    "js": "rollup -c --watch"
+    "js": "rollup -c --watch",
+    "scss": "sass src/styles/app.scss dist/styles/app.css --watch"
   },
   "repository": {
     "type": "git",
@@ -20,8 +21,8 @@
     "concurrently": "^5.1.0",
     "copyfiles": "^2.2.0",
     "http-server": "^0.12.1",
-    "rimraf": "^3.0.2",
     "rollup": "^2.3.2",
+    "sass": "^1.26.3",
     "tslib": "^1.11.1",
     "typescript": "^3.8.3"
   },
