@@ -1,0 +1,15 @@
+.overlay {
+	position: fixed;
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 2;
+
+	> div {
+		font-size: 1.2rem;
+		margin: 0 100px;
+		text-align: center;
+	}
+}

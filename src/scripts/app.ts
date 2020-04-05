@@ -27,8 +27,8 @@ class App {
 	// Visuals: Equalizer
 	private readonly VERTICAL_ZOOM = 1;
 	private readonly ALPHA_MIN = 0.7;
-	private readonly EQ_BAR_WIDTH = 5; // default: 0
-	private readonly EQ_BAR_SPACING = true;
+	private readonly EQ_BAR_WIDTH = 0; // default: 0
+	private readonly EQ_BAR_SPACING = 2;
 	private readonly VFX: IVisualEffects = {
 		reflectHorizontal: true,
 		reflectVertical: true
@@ -48,6 +48,7 @@ class App {
 	
 	canvasContext: CanvasRenderingContext2D | null = null;
 	canvasElement: HTMLCanvasElement | null = null;
+	feedbackElement: HTMLDivElement | null = null;
 	//#endregion
 	
 	private state = {
@@ -133,7 +134,7 @@ class App {
 		maxWidth = this.canvasElement.width - xOffset;
 		byteData = this.audioDataArray[i]; // 0 - 255
 		maxRectWidth = Math.ceil(maxWidth / this.audioBufferLength);
-		w = this.EQ_BAR_WIDTH ? this.EQ_BAR_WIDTH : maxRectWidth;
+		w = this.EQ_BAR_WIDTH ? this.EQ_BAR_WIDTH : maxRectWidth - this.EQ_BAR_SPACING;
 		if (this.EQ_BAR_SPACING) {
 			x = xOffset + w * i + ((maxRectWidth - w) * (i+0.5));
 		} else {
@@ -224,8 +225,9 @@ class App {
 		let gradient;
 		
 		gradient = this.canvasContext.createLinearGradient(0, 0, this.canvasElement.width, this.canvasElement.height);
-		gradient.addColorStop(0, colors.parse(colors.darken(colors.colorBufferArray[0], 75)));
-		gradient.addColorStop(1, colors.parse(colors.darken(colors.colorBufferArray[this.colorBufferLength-1], 95)));
+		gradient.addColorStop(0, 	colors.parse(colors.darken(colors.colorBufferArray[0], 50)));
+		gradient.addColorStop(0.5, 	colors.parse(colors.darken(colors.colorBufferArray[this.colorBufferLength/2], 95)));
+		gradient.addColorStop(1, 	colors.parse(colors.darken(colors.colorBufferArray[this.colorBufferLength-1], 60)));
 		this.canvasContext.fillStyle = gradient;
 		this.canvasContext.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 	}
@@ -282,7 +284,7 @@ class App {
 			this.canvasElement = document.createElement("canvas")
 			this.canvasElement.width = this.CANVAS_WIDTH;
 			this.canvasElement.height = this.CANVAS_HEIGHT;
-			document.getElementById("root")?.appendChild(this.canvasElement);
+			document.querySelector("#app")?.appendChild(this.canvasElement);
 		}
 
 		// Get canvas element and context
@@ -313,8 +315,16 @@ class App {
 	}
 	//#endregion
 
+	giveFeedback(message?: string) {
+		if (this.feedbackElement){
+			this.feedbackElement.innerText = message || "";
+		}
+	}
+
 	init() {
 		DEBUG && console.log('[App.init] Called');
+		this.feedbackElement = document.querySelector("#app-feedback");
+		this.giveFeedback();
 
 		if (this.state.isPlaying) {
 			colors.initRotate(this.colorBufferLength);
@@ -324,13 +334,16 @@ class App {
 				colors.startLoop();
 			}, () => {
 				DEBUG && console.log('[App.init] Could not initiate automatically');
+				this.giveFeedback("This app uses your microphone to visualize audio \n\nClick/Tap anywhere to play/pause");
 			});
 		}
 
-		document.removeEventListener("click", app.togglePlayPause);
-		document.addEventListener("click", app.togglePlayPause);
+		document.removeEventListener("click", this.togglePlayPause);
+		document.addEventListener("click", this.togglePlayPause);
 	}
 }
 
-let app = new App();
-app.init();
+document.addEventListener('DOMContentLoaded', () => {
+	let app = new App();
+	app.init();
+});
