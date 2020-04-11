@@ -1,3 +1,10 @@
+button {
+	all: initial;
+	font-family: inherit;
+	background: $primary;
+	padding: .3rem .5rem;
+}
+
 canvas {
-	vertical-align: bottom;
+	display: block;
 }

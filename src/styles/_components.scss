@@ -13,3 +13,16 @@
 		text-align: center;
 	}
 }
+
+.bottomBar {
+	position: fixed;
+	bottom: 0;
+	width: 100vw;
+	padding: .5rem;
+	background: rgba($dark, 20%);
+	z-index: 3;
+
+	button + button {
+		margin-left: 1rem;
+	}
+}

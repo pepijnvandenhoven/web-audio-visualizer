@@ -3,7 +3,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import copy from 'rollup-plugin-copy';
 
 export default {
-	input: "src/scripts/app.ts",
+	input: "src/scripts/App.ts",
 	output: [{
 		file: "dist/scripts/bundle.js",
 		format: "cjs"
