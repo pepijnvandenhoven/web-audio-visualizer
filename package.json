@@ -3,14 +3,16 @@
   "version": "1.0.0",
   "description": "An audio visualizer",
   "scripts": {
-    "start": "npm-run-all -p watch:*",
+    "start": "npm-run-all -p watch:serve watch:sass watch:rollup",
     "build": "npm-run-all clean -p build:*",
     "clean": "rimraf dist/*",
     "watch:serve": "live-server --open=dist --watch=dist",
-    "watch:sass": "sass src/styles/app.scss dist/styles/app.css --watch",
+	 "watch:sass": "npm run build:sass:dev --watch",
     "watch:rollup": "rollup -c rollup.config.dev.js --watch",
     "build:sass": "sass --style=compressed src/styles/app.scss dist/styles/app.min.css",
-    "build:rollup": "rollup -c"
+	 "build:sass:dev": "sass src/styles/app.scss dist/styles/app.css",
+    "build:rollup": "rollup -c",
+    "build:rollup:dev": "rollup -c rollup.config.dev.js"
   },
   "repository": {
     "type": "git",

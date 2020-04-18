@@ -1,8 +1,8 @@
 import { DEBUG, STATE, AUDIO } from "./helpers/Helpers";
 import { Bars } from "./components/Bars";
-// import { Three } from "./components/Three";
+import { ThreeScene } from "./components/ThreeScene";
 
-let visualizer: Bars;
+let visualizer: Bars | ThreeScene;
 
 class App {
 	feedbackElement: HTMLDivElement | null = null;
@@ -21,7 +21,7 @@ class App {
 	
 	//#region Event handlers
 	togglePlayPause() {
-		DEBUG && console.log('[Bars.togglePlayPause] Called');
+		DEBUG && console.log('[App.togglePlayPause] Called');
 
 		if (STATE.initFailed) {
 			// Reset state and init again
@@ -30,7 +30,9 @@ class App {
 			this.init();
 		} else {
 			STATE.isPlaying = !STATE.isPlaying;
-			visualizer.togglePlayPause();
+			if (visualizer) {
+				visualizer.togglePlayPause();
+			}
 		}
 	}
 	//#endregion
@@ -41,13 +43,14 @@ class App {
 
 		if (STATE.isPlaying) {
 			AUDIO.init().then(() => {
-				visualizer = new Bars();
+				visualizer = new ThreeScene();
 				visualizer.init();
+
 			}, () => {
 				DEBUG && console.log('[App.init] Could not initiate automatically');
 				STATE.initFailed = true;
 				STATE.isPlaying = false;
-				this.giveFeedback("This app uses your microphone to visualize audio \n\nClick/Tap anywhere to play/pause");
+				this.giveFeedback("This website uses your microphone to visualize audio \n\nClick/Tap anywhere to start");
 			});
 		}
 		

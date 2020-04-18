@@ -6,7 +6,7 @@ export default {
 	input: "src/scripts/App.ts",
 	output: [{
 		file: "dist/scripts/bundle.js",
-		format: "cjs"
+		format: "cjs",
 	}],
 	plugins: [
 		typescript(),
@@ -16,7 +16,7 @@ export default {
 				{ 
 					src: 'src/index.html', 
 					dest: 'dist', 
-					transform: (contents) => contents.toString().replace(/.min./g, '.')
+					transform: (contents) => contents.toString().replace(/bundle.min.js/g, 'bundle.js').replace(/app.min.css/g, 'app.css')
 			 	}
 			]
 		})

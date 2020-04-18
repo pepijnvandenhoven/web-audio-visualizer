@@ -1,6 +1,6 @@
 import { DebuggerWithLimit, DEBUG } from "./Debugger";
 
-const debuggerWithLimit = new DebuggerWithLimit(3);
+const debuggerWithLimit = new DebuggerWithLimit(32);
 
 export interface IColorBufferItem {
 	r: number;
@@ -60,7 +60,7 @@ export class Colors {
 			return 'rgb(0,0,0)';
 		}
 		let {r, g, b} = color;
-		return `rgb(${r}, ${g}, ${b})`;
+		return `rgb(${Math.ceil(r)}, ${Math.ceil(g)}, ${Math.ceil(b)})`;
 	}
 
 	private rotateValue(colorValue: IColorRotateObject) {
@@ -71,7 +71,15 @@ export class Colors {
 		if((colorValue.value >= this.COLOR_MAX && colorValue.up) || (colorValue.value <= this.COLOR_MIN && !colorValue.up)) {
 			colorValue.up = !colorValue.up;
 		}
+
 		colorValue.value = colorValue.up ? colorValue.value + step : colorValue.value - step;
+
+		if(colorValue.value >= this.COLOR_MAX) {
+			colorValue.value = this.COLOR_MAX;
+		} else if (colorValue.value <= this.COLOR_MIN) {
+			colorValue.value = this.COLOR_MIN;
+		}
+		
 		return colorValue;
 	}
 
@@ -102,9 +110,8 @@ export class Colors {
 
 		// Assign a new color to each frequency range
 		for (let i = this.colorBufferLength-1; i > -1; i--) {
-			let prevColor: IColorBufferItem;
-			if (i > 0) {
-				prevColor = this.colorBufferArray[i-1];
+			let prevColor: IColorBufferItem | null = i > 0 ? this.colorBufferArray[i-1] : null;
+			if (prevColor) {
 				this.rotateR.value = prevColor.r;
 				this.rotateG.value = prevColor.g;
 				this.rotateB.value = prevColor.b;
@@ -117,6 +124,9 @@ export class Colors {
 				g: this.rotateG.value,
 				b: this.rotateB.value
 			};
+			// if (!prevColor) {
+			// 	debuggerWithLimit.log(`[COLORS] generated a new color: ${JSON.stringify(this.colorBufferArray[i])}`);
+			// }
 		}
 	}
 
@@ -130,7 +140,8 @@ export class Colors {
 		DEBUG && console.log('[Colors.startLoop] Called');
 
 		if (this.isLooping) {
-			return
+			DEBUG && console.log('[Colors.startLoop] Already started');
+			return;
 		}
 		this.isLooping = true;
 		this.rotateLoop();
