@@ -25,6 +25,11 @@ export class ThreeScene {
 	};
 
 	/**
+	 * Wether the next animation frame should also resize the renderer
+	 */
+	needsResize: boolean;
+
+	/**
 	 * The renderer
 	 */
 	renderer: THREE.Renderer;
@@ -88,6 +93,7 @@ export class ThreeScene {
 			indigo: 			new THREE.Color("#3f51b5"),
 			violet: 			new THREE.Color("#9c27b0"),
 		}
+		this.needsResize = true;
 
 		this.renderer = new THREE.WebGLRenderer({ antialias: true });
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, .1, 1000);
@@ -129,15 +135,20 @@ export class ThreeScene {
 		document.body.appendChild(this.renderer.domElement);
 		this.renderer.render(this.scene, this.camera);
 		this.animate();
+
+		// Event listeners
+		window.addEventListener("resize", () => {
+			this.resizeRendererToDisplaySize();
+		});
 	}
 
 	createPointLightGroup() {
+		DEBUG && console.log("[ThreeScene.createPointLightGroup] Called");
+
 		let group = new THREE.Group();
 		group.add(this.createPointLight(this.colors.red));
 		group.add(this.createPointLight(this.colors.green));
 		group.add(this.createPointLight(this.colors.blue));
-
-		DEBUG && console.log("[ThreeScene.createLightGroup] Light group created", group);
 
 		return group;
 	}
@@ -197,8 +208,8 @@ export class ThreeScene {
 
 		if (!AUDIO.audioAnalyser || !AUDIO.audioBufferLength || !AUDIO.audioDataArray) {
 			if (DEBUG) {
-				console.error('[Bars.drawVisuals] Failed');
-				console.groupCollapsed('[Bars.drawVisuals]');
+				console.error('[ThreeScene.drawVisuals] Failed');
+				console.groupCollapsed('[ThreeScene.drawVisuals]');
 				console.log(`audioAnalyser: ${AUDIO.audioAnalyser}`);
 				console.log(`audioBufferLength: ${AUDIO.audioBufferLength}`);
 				console.log(`audioDataArray: ${AUDIO.audioDataArray}`);
@@ -253,14 +264,39 @@ export class ThreeScene {
 				mesh.material.color.set(new THREE.Color(colors.parse(colors.colorBufferArray[i])));
 			}
 		});
-		this.meshGroup.rotation.x = time * .25;
+		this.meshGroup.rotation.x = time * .125;
+		this.meshGroup.rotation.y = time * .05;
+		this.meshGroup.rotation.z = time * .01;
 
 		// SCENE
 		this.scene.background = this.colors.primaryDark;
 		if (this.scene.fog) {
 			this.scene.fog.color = this.colors.primaryDark;
 		}
+
+		// CAMERA
+		if (this.needsResize) {
+			const canvas = this.renderer.domElement;
+			this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
+			this.camera.updateProjectionMatrix();
+			this.needsResize = false;
+		}
+
 		this.renderer.render(this.scene, this.camera);
+	}
+
+	resizeRendererToDisplaySize() {
+		const canvas = this.renderer.domElement;
+		const pixelRatio = window.devicePixelRatio;
+		const width  = canvas.clientWidth  * pixelRatio | 0;
+		const height = canvas.clientHeight * pixelRatio | 0;
+		this.needsResize = canvas.width !== width || canvas.height !== height;
+		
+		if (this.needsResize) {
+			this.renderer.setSize(width, height, false);
+		} else {
+			DEBUG && debuggerWithLimit.log("[ThreeScene.resizeRendererToDisplaySize] No need to resize", canvas.width, width, canvas.height, height);
+		}
 	}
 
 	togglePlayPause() {

@@ -95,7 +95,7 @@ export class Bars {
 		}
 
 		if (!rectParams) {
-			debuggerWithLimit.log('[drawVisuals] Could not get rectParams');
+			DEBUG && debuggerWithLimit.log('[drawVisuals] Could not get rectParams');
 			return;
 		}
 

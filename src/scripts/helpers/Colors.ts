@@ -124,9 +124,6 @@ export class Colors {
 				g: this.rotateG.value,
 				b: this.rotateB.value
 			};
-			// if (!prevColor) {
-			// 	debuggerWithLimit.log(`[COLORS] generated a new color: ${JSON.stringify(this.colorBufferArray[i])}`);
-			// }
 		}
 	}
 

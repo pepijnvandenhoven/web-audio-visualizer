@@ -1,4 +1,5 @@
-export const DEBUG = true;
+export const DEBUG = false;
+
 export class DebuggerWithLimit {
 	limit: number;
 	private count: number = 0;
