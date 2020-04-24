@@ -34,3 +34,7 @@ body {
 	background: $dark;
 	font-family: $font-family-sans-serif;
 }
+
+* {
+	box-sizing: border-box;
+}

@@ -2,22 +2,65 @@ import { DEBUG, STATE, AUDIO } from "./helpers/Helpers";
 import { Bars } from "./components/Bars";
 import { ThreeScene } from "./components/ThreeScene";
 
-let visualizer: Bars | ThreeScene;
-
 class App {
-	feedbackElement: HTMLDivElement | null = null;
+	visualizer: Bars | ThreeScene | null = null;
+	classNames = { 
+		body: {
+			initiated: "live",
+			playing: "playing",
+			paused: "paused",
+		}
+	};
+
+	body: HTMLBodyElement | null = null;
+	divFeedback: HTMLDivElement | null = null;
+	btnSwitchEffect: HTMLButtonElement | null = null;
+	btnReset: HTMLButtonElement | null = null;
+	btnPlayPause: HTMLButtonElement | null = null;
 	
 	constructor() {
 		this.togglePlayPause = this.togglePlayPause.bind(this);
 
+		this.body = document.querySelector("body");
+		this.divFeedback = document.querySelector('[data-ui="appFeedback"]');
+		this.btnSwitchEffect = document.querySelector('[data-ui="appSwitchEffect"]');
+		this.btnReset = document.querySelector('[data-ui="appReset"]');
+		this.btnPlayPause = document.querySelector('[data-ui="appPlayPause"]');
+
+		this.toggleVisualizer = this.toggleVisualizer.bind(this);
+		
 		this.init();
 	}
 	
 	giveFeedback(message?: string) {
-		if (this.feedbackElement) {
-			this.feedbackElement.innerText = message || "";
+		if (this.divFeedback) {
+			this.divFeedback.innerText = message || "";
 		}
 	}
+
+	init() {
+		this.giveFeedback();
+
+		if (STATE.isPlaying) {
+			AUDIO.init().then(() => {
+				this.visualizer = new Bars();
+				this.visualizer.init();
+				this.body?.classList.add(this.classNames.body.initiated);
+			}, () => {
+				DEBUG && console.log('[App.init] Could not initiate automatically');
+				STATE.initFailed = true;
+				STATE.isPlaying = false;
+				this.giveFeedback("This website uses your microphone to visualize audio \n\nClick/Tap anywhere to start");
+				this.body?.removeEventListener("click", this.togglePlayPause);
+				this.body?.addEventListener("click", this.togglePlayPause);
+			});
+		}
+		
+		// Add event listeners
+		// this.btnPlayPause?.addEventListener("click", this.togglePlayPause);
+		this.btnSwitchEffect?.addEventListener("click", this.toggleVisualizer);
+	}
+	
 	
 	//#region Event handlers
 	togglePlayPause() {
@@ -30,33 +73,27 @@ class App {
 			this.init();
 		} else {
 			STATE.isPlaying = !STATE.isPlaying;
-			if (visualizer) {
-				visualizer.togglePlayPause();
+			this.visualizer?.togglePlayPause();
+			if (STATE.isPlaying) {
+				this.body?.classList.remove(this.classNames.body.paused);
+				this.body?.classList.add(this.classNames.body.playing);
+			} else {
+				this.body?.classList.add(this.classNames.body.paused);
+				this.body?.classList.remove(this.classNames.body.playing);
 			}
 		}
 	}
-	//#endregion
 
-	init() {
-		this.feedbackElement = document.querySelector('[data-ui="appFeedback"]');
-		this.giveFeedback();
-
-		if (STATE.isPlaying) {
-			AUDIO.init().then(() => {
-				visualizer = new ThreeScene();
-				visualizer.init();
-
-			}, () => {
-				DEBUG && console.log('[App.init] Could not initiate automatically');
-				STATE.initFailed = true;
-				STATE.isPlaying = false;
-				this.giveFeedback("This website uses your microphone to visualize audio \n\nClick/Tap anywhere to start");
-			});
+	toggleVisualizer() {
+		this.visualizer?.destroy();
+		if (this.visualizer instanceof Bars) {
+			this.visualizer = new ThreeScene();
+		} else {
+			this.visualizer = new Bars();
 		}
-		
-		document.removeEventListener("click", this.togglePlayPause);
-		document.addEventListener("click", this.togglePlayPause);
+		this.visualizer.init();
 	}
+	//#endregion
 }
 
 window.addEventListener("DOMContentLoaded", () => {

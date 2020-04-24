@@ -1,8 +1,20 @@
 button {
 	all: initial;
 	font-family: inherit;
-	background: $primary;
-	padding: .3rem .5rem;
+	background-color: $primary;
+	padding: .5rem 1rem;
+	color: $light;
+	box-shadow: .1rem 0 .5rem rgba($dark, 50%);
+	cursor: pointer;
+	transition: background-color .3s ease-in-out;
+
+	&:hover {
+		background-color: darken($primary, 10%);
+	}
+
+	& + & {
+		margin-left: 1rem;
+	}
 }
 
 canvas {

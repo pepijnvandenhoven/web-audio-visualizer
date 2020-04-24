@@ -242,4 +242,9 @@ export class Bars {
 		this.drawLoop();
 		colors.startLoop();
 	}
+
+	destroy() {
+		DEBUG && console.log("[Bars.destroy] Called");
+		this.canvasElement?.remove();
+	}
 }

@@ -73,6 +73,11 @@ export class ThreeScene {
 	 * Group containing all meshes
 	 */
 	meshGroup: THREE.Mesh | THREE.Group;
+
+	/**
+	 * Average volume
+	 */
+	averageVolume: number;
 	
 	constructor() {
 		colors.initRotate(AUDIO.ANALYSER_FFT_SIZE / 2);
@@ -106,6 +111,7 @@ export class ThreeScene {
 		this.showPointLightOrbs = false;
 		
 		this.meshGroup = new THREE.Group();
+		this.averageVolume = 0;
 
 		this.animate = this.animate.bind(this);
 	}
@@ -140,6 +146,11 @@ export class ThreeScene {
 		window.addEventListener("resize", () => {
 			this.resizeRendererToDisplaySize();
 		});
+	}
+	
+	destroy() {
+		DEBUG && console.log("[ThreeScene.destroy] Called");
+		document.querySelector("canvas")?.remove();
 	}
 
 	createPointLightGroup() {
@@ -229,9 +240,8 @@ export class ThreeScene {
 		AUDIO.audioAnalyser.getByteFrequencyData(AUDIO.audioDataArray);
 		
 		// Calculate the average volume
-		let averageVolume = Math.round(AUDIO.audioDataArray.reduce((accumulator, currentValue) => accumulator + currentValue) / AUDIO.audioDataArray.length);
-		let minIntensity = .2;
-		this.sun.intensity = minIntensity + (averageVolume / 255) * (1 - minIntensity);
+		this.averageVolume = Math.round(AUDIO.audioDataArray.reduce((accumulator, currentValue) => accumulator + currentValue) / AUDIO.audioDataArray.length);
+		this.sun.intensity = .2 + (this.averageVolume / 255) * (1 - .2);
 
 		// LIGHTS
 		this.pointLightGroup.children.forEach((light, i) => {
