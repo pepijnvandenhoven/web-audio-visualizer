@@ -1,6 +1,9 @@
 import typescript from "@rollup/plugin-typescript";
 import resolve from '@rollup/plugin-node-resolve';
 import copy from 'rollup-plugin-copy';
+import replace from '@rollup/plugin-replace';
+
+const pkg = require("./package.json");
 
 export default {
 	input: "src/scripts/App.ts",
@@ -9,6 +12,9 @@ export default {
 		format: "cjs",
 	}],
 	plugins: [
+		replace({
+			"process.env.DEBUG": "true"
+		}),
 		typescript(),
 		resolve(),
 		copy({
@@ -16,7 +22,10 @@ export default {
 				{ 
 					src: 'src/index.html', 
 					dest: 'dist', 
-					transform: (contents) => contents.toString().replace(/bundle.min.js/g, 'bundle.js').replace(/app.min.css/g, 'app.css')
+					transform: (contents) => contents.toString()
+						.replace(/bundle.min.js/g, 'bundle.js')
+						.replace(/app.min.css/g, 'app.css')
+						.replace(/{{VERSION}}/g, pkg.version)
 			 	}
 			]
 		})

@@ -1,4 +1,4 @@
-export const DEBUG = false;
+export const DEBUG = process.env.DEBUG || false;
 
 export class DebuggerWithLimit {
 	limit: number;
