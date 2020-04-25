@@ -147,13 +147,8 @@ export class ThreeScene {
 			this.resizeRendererToDisplaySize();
 		});
 	}
-	
-	destroy() {
-		DEBUG && console.log("[ThreeScene.destroy] Called");
-		document.querySelector("canvas")?.remove();
-	}
 
-	createPointLightGroup() {
+	private createPointLightGroup() {
 		DEBUG && console.log("[ThreeScene.createPointLightGroup] Called");
 
 		let group = new THREE.Group();
@@ -164,7 +159,7 @@ export class ThreeScene {
 		return group;
 	}
 
-	createPointLight(color: THREE.Color) {
+	private createPointLight(color: THREE.Color) {
 		let light;
 
 		light = new THREE.PointLight(color, 4, 500, 2);
@@ -179,7 +174,7 @@ export class ThreeScene {
 		return light;
 	}
 
-	createMeshGroup() {
+	private createMeshGroup() {
 		DEBUG && console.log("[ThreeScene.createMeshGroup] Called");
 
 		let size = 10;
@@ -206,7 +201,7 @@ export class ThreeScene {
 		return group;
 	}
 
-	createMaterial(color: THREE.Color) {
+	private createMaterial(color: THREE.Color) {
 		return new THREE.MeshPhongMaterial({
 			color: color,
 			shininess: 1,
@@ -214,7 +209,7 @@ export class ThreeScene {
 		});
 	}
 
-	animate(time = 0) {
+	private animate(time = 0) {
 		requestAnimationFrame(this.animate);
 
 		if (!AUDIO.audioAnalyser || !AUDIO.audioBufferLength || !AUDIO.audioDataArray) {
@@ -295,7 +290,7 @@ export class ThreeScene {
 		this.renderer.render(this.scene, this.camera);
 	}
 
-	resizeRendererToDisplaySize() {
+	private resizeRendererToDisplaySize() {
 		const canvas = this.renderer.domElement;
 		const pixelRatio = window.devicePixelRatio;
 		const width  = canvas.clientWidth  * pixelRatio | 0;
@@ -312,5 +307,10 @@ export class ThreeScene {
 	togglePlayPause() {
 		DEBUG && console.log("[ThreeScene.togglePlayPause] Called");
 		return;
+	}
+	
+	destroy() {
+		DEBUG && console.log("[ThreeScene.destroy] Called");
+		document.querySelector("canvas")?.remove();
 	}
 }

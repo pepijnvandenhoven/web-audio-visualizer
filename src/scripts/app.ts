@@ -19,14 +19,13 @@ class App {
 	btnPlayPause: HTMLButtonElement | null = null;
 	
 	constructor() {
-		this.togglePlayPause = this.togglePlayPause.bind(this);
-
 		this.body = document.querySelector("body");
 		this.divFeedback = document.querySelector('[data-ui="appFeedback"]');
 		this.btnSwitchEffect = document.querySelector('[data-ui="appSwitchEffect"]');
 		this.btnReset = document.querySelector('[data-ui="appReset"]');
 		this.btnPlayPause = document.querySelector('[data-ui="appPlayPause"]');
 
+		this.togglePlayPause = this.togglePlayPause.bind(this);
 		this.toggleVisualizer = this.toggleVisualizer.bind(this);
 		
 		this.init();
