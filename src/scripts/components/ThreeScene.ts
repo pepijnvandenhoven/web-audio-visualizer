@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { DebuggerWithLimit, DEBUG, Colors, AUDIO, STATE } from "../helpers/Helpers";
 
 const debuggerWithLimit = new DebuggerWithLimit(32);
-const colors = new Colors();
 
 export class ThreeScene {
+	colors: Colors;
 	/**
 	 * Object containing all colors
 	 */
-	colors: {
+	colorPalette: {
 		primary: 		THREE.Color;
 		primaryDark: 	THREE.Color;
 		black: 			THREE.Color;
@@ -78,12 +78,37 @@ export class ThreeScene {
 	 * Average volume
 	 */
 	averageVolume: number;
+
+	/**
+	 * Disposable resources, i.e. textures, geometries, materials
+	 */
+	disposableResources: (THREE.Texture | THREE.Geometry | THREE.Material | THREE.Object3D)[];
+
+	/**
+	 * Current requestAnimationFrame
+	 */
+	raf = 0;
+
+	/**
+	 * Max FPS
+	 */
+	maxFPS: number;
+
+	/**
+	 * Previous time passed by requestAnimationFrame
+	 */
+	prevTime = 0;
+
+	/**
+	 * Total count of frames drawn
+	 */
+	frameCount = 0;
 	
+
+
 	constructor() {
-		colors.initRotate(AUDIO.ANALYSER_FFT_SIZE / 2);
-		colors.startLoop();
-		
-		this.colors = {
+		this.colors = new Colors();
+		this.colorPalette = {
 			primary: 		new THREE.Color("#000"),
 			primaryDark: 	new THREE.Color("#000"),
 			black: 			new THREE.Color("#000"),
@@ -104,57 +129,72 @@ export class ThreeScene {
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, .1, 1000);
 		this.scene = new THREE.Scene();
 
-		this.ambientLight = new THREE.AmbientLight(this.colors.indigo, .1);
-		this.hemisphereLight = new THREE.HemisphereLight(this.colors.yellow, this.colors.indigo, .3);
-		this.sun = new THREE.DirectionalLight(this.colors.white, .5);
+		this.ambientLight = new THREE.AmbientLight(this.colorPalette.indigo, .1);
+		this.hemisphereLight = new THREE.HemisphereLight(this.colorPalette.yellow, this.colorPalette.indigo, .3);
+		this.sun = new THREE.DirectionalLight(this.colorPalette.white, .5);
 		this.pointLightGroup = new THREE.Group();
 		this.showPointLightOrbs = false;
 		
 		this.meshGroup = new THREE.Group();
 		this.averageVolume = 0;
 
+		this.disposableResources = [];
+
+		this.maxFPS = 60;
+
 		this.animate = this.animate.bind(this);
+		this.resizeRendererToDisplaySize = this.resizeRendererToDisplaySize.bind(this);
 	}
 
 	init() {
 		DEBUG && console.log("[ThreeScene.init] Called");
+		
+		this.colors.initRotate(AUDIO.ANALYSER_FFT_SIZE / 2);
+		this.colors.startLoop();
 
 		this.camera.position.z = 300;
-		this.scene.background = new THREE.Color(this.colors.black);
-		this.scene.fog = new THREE.Fog(this.colors.black.getHex(), 200, 400);
+		this.scene.background = new THREE.Color(this.colorPalette.black);
+		this.scene.fog = new THREE.Fog(this.colorPalette.black.getHex(), 200, 500);
 		this.renderer.setSize(window.innerWidth, window.innerHeight);
 		
 		// LIGHTS
-		this.scene.add(this.ambientLight);
-		this.scene.add(this.hemisphereLight);
+		this.scene.add(this.track(this.ambientLight));
+		this.scene.add(this.track(this.hemisphereLight));
 
 		this.sun.position.set(1000, 500, 500);
-		this.scene.add(this.sun);
+		this.scene.add(this.track(this.sun));
 		
 		this.pointLightGroup = this.createPointLightGroup();
-		this.scene.add(this.pointLightGroup);
+		this.scene.add(this.track(this.pointLightGroup));
 		
 		// MESH
-		this.meshGroup = this.createMeshGroup();
-		this.scene.add(this.meshGroup);
+		this.meshGroup = this.addHelixMeshGroup();
+		this.scene.add(this.track(this.meshGroup));
 
 		document.body.appendChild(this.renderer.domElement);
 		this.renderer.render(this.scene, this.camera);
 		this.animate();
 
 		// Event listeners
-		window.addEventListener("resize", () => {
-			this.resizeRendererToDisplaySize();
-		});
+		window.addEventListener("resize", this.resizeRendererToDisplaySize);
+		
+		DEBUG && console.log(`[ThreeScene.init] Done. Added ${this.disposableResources.length} disposable resources`);
+	}
+
+	private track<T>(resource: T) : T {
+		if (resource instanceof THREE.Texture || resource instanceof THREE.Geometry || resource instanceof THREE.Material || resource instanceof THREE.Object3D) {
+			this.disposableResources.push(resource);
+		}
+		return resource;
 	}
 
 	private createPointLightGroup() {
 		DEBUG && console.log("[ThreeScene.createPointLightGroup] Called");
 
 		let group = new THREE.Group();
-		group.add(this.createPointLight(this.colors.red));
-		group.add(this.createPointLight(this.colors.green));
-		group.add(this.createPointLight(this.colors.blue));
+		group.add(this.createPointLight(this.colorPalette.red));
+		group.add(this.createPointLight(this.colorPalette.green));
+		group.add(this.createPointLight(this.colorPalette.blue));
 
 		return group;
 	}
@@ -174,23 +214,23 @@ export class ThreeScene {
 		return light;
 	}
 
-	private createMeshGroup() {
-		DEBUG && console.log("[ThreeScene.createMeshGroup] Called");
+	private addHelixMeshGroup() {
+		DEBUG && console.log("[ThreeScene.addHelixMeshGroup] Called");
 
 		let size = 10;
 		let gap = 10;
 		let offset = size + gap;
 		let group = new THREE.Group();
-		let geometry = new THREE.BoxGeometry(size, size, size);
+		let geometry = this.track(new THREE.BoxGeometry(size, size, size));
 		let mesh;
 
 		// Use frequency divisions for initial mesh color, position, etc.
 		if(AUDIO.audioBufferLength) {
-			DEBUG && console.log(`[ThreeScene.createMeshGroup] Generating ${AUDIO.audioBufferLength} meshes`);
+			DEBUG && console.log(`[ThreeScene.addHelixMeshGroup] Generating ${AUDIO.audioBufferLength} meshes`);
 
 			for ( let i = 0; i < AUDIO.audioBufferLength; i++ ) {
-				let material = this.createMaterial(new THREE.Color(colors.parse(colors.colorBufferArray[i])));
-				mesh = new THREE.Mesh(geometry, material);
+				let material = this.createMaterial(new THREE.Color(this.colors.parse(this.colors.colorBufferArray[i])));
+				mesh = this.track(new THREE.Mesh(geometry, material));
 				// Place next to eachother, centered
 				mesh.position.x = i * offset - (AUDIO.audioBufferLength * offset / 2);
 				mesh.rotateX(i/AUDIO.audioBufferLength * 3);
@@ -202,16 +242,17 @@ export class ThreeScene {
 	}
 
 	private createMaterial(color: THREE.Color) {
-		return new THREE.MeshPhongMaterial({
+		return this.track(new THREE.MeshPhongMaterial({
 			color: color,
 			shininess: 1,
 			reflectivity: 1 
-		});
+		}));
 	}
 
-	private animate(time = 0) {
-		requestAnimationFrame(this.animate);
+	private animate(currTime = 0) {
+		this.raf = requestAnimationFrame(this.animate);
 
+		// Check if AUDIO is set up correctly
 		if (!AUDIO.audioAnalyser || !AUDIO.audioBufferLength || !AUDIO.audioDataArray) {
 			if (DEBUG) {
 				console.error('[ThreeScene.drawVisuals] Failed');
@@ -224,12 +265,18 @@ export class ThreeScene {
 			return;
 		}
 
-		// Convert time to seconds
-		time *= .001;
+		// Limit FPS
+		if ((currTime-this.prevTime) < (1000/this.maxFPS)) {
+			return;
+		}
+		this.prevTime = currTime;
+		
+		this.frameCount++;
+		let delta = this.frameCount * 1/this.maxFPS;
 
 		// Set newly generated color as new primary color
-		this.colors.primary = new THREE.Color(colors.parse(colors.colorBufferArray[0]));
-		this.colors.primaryDark = this.colors.primary.lerp(this.colors.black, .8);
+		this.colorPalette.primary = new THREE.Color(this.colors.parse(this.colors.colorBufferArray[0]));
+		this.colorPalette.primaryDark = this.colorPalette.primary.lerp(this.colorPalette.black, .8);
 
 		// Copy current frequency data into audioDataArray
 		AUDIO.audioAnalyser.getByteFrequencyData(AUDIO.audioDataArray);
@@ -243,19 +290,19 @@ export class ThreeScene {
 			if (light instanceof THREE.PointLight) {
 				switch(i % 3) {
 					case 1: 
-						light.position.x = Math.sin( time * .7 ) * 250;
-						light.position.y = Math.cos( time * .5 ) * 500;
-						light.position.z = Math.cos( time * .3 ) * 250;
+						light.position.x = Math.sin( delta * .7 ) * 250;
+						light.position.y = Math.cos( delta * .5 ) * 500;
+						light.position.z = Math.cos( delta * .3 ) * 250;
 						break;
 					case 2: 
-						light.position.x = Math.cos( time * .3 ) * 250;
-						light.position.y = Math.sin( time * .5 ) * 500;
-						light.position.z = Math.sin( time * .7 ) * 250;
+						light.position.x = Math.cos( delta * .3 ) * 250;
+						light.position.y = Math.sin( delta * .5 ) * 500;
+						light.position.z = Math.sin( delta * .7 ) * 250;
 						break;
 					default:
-						light.position.x = Math.sin( time * .3 ) * 250;
-						light.position.y = Math.cos( time * .7 ) * 500;
-						light.position.z = Math.sin( time * .5 ) * 250;
+						light.position.x = Math.sin( delta * .3 ) * 250;
+						light.position.y = Math.cos( delta * .7 ) * 500;
+						light.position.z = Math.sin( delta * .5 ) * 250;
 				}
 			}
 		});
@@ -265,18 +312,18 @@ export class ThreeScene {
 			if (mesh instanceof THREE.Mesh && mesh.material instanceof THREE.MeshPhongMaterial) {
 				let byteData = AUDIO.audioDataArray?.[i] || 0; // 0 - 255
 				mesh.scale.y = byteData / AUDIO.MAX_BYTE_DATA * 50 + 1;
-				mesh.rotation.y = time * .25;
-				mesh.material.color.set(new THREE.Color(colors.parse(colors.colorBufferArray[i])));
+				mesh.rotation.y = delta * .25;
+				mesh.material.color.set(new THREE.Color(this.colors.parse(this.colors.colorBufferArray[i])));
 			}
 		});
-		this.meshGroup.rotation.x = time * .125;
-		this.meshGroup.rotation.y = time * .05;
-		this.meshGroup.rotation.z = time * .01;
+		this.meshGroup.rotation.x = delta * .125;
+		this.meshGroup.rotation.y = delta * .05;
+		this.meshGroup.rotation.z = delta * .01;
 
 		// SCENE
-		this.scene.background = this.colors.primaryDark;
+		this.scene.background = this.colorPalette.primaryDark;
 		if (this.scene.fog) {
-			this.scene.fog.color = this.colors.primaryDark;
+			this.scene.fog.color = this.colorPalette.primaryDark;
 		}
 
 		// CAMERA
@@ -299,18 +346,40 @@ export class ThreeScene {
 		
 		if (this.needsResize) {
 			this.renderer.setSize(width, height, false);
-		} else {
-			DEBUG && debuggerWithLimit.log("[ThreeScene.resizeRendererToDisplaySize] No need to resize", canvas.width, width, canvas.height, height);
 		}
+	}
+
+	private disposeResources() {
+		DEBUG && console.log("[ThreeScene.disposeResources] Called. Current scene: ", this.scene);
+
+		this.disposableResources.forEach((resource) => {
+			if (resource instanceof THREE.Object3D) {
+				if (resource.parent) {
+				  resource.parent.remove(resource);
+				}
+			} else {
+				resource.dispose();
+			}
+		});
+		
+		this.disposableResources = [];
+		DEBUG && console.log("[ThreeScene.disposeResources] Done. Current scene: ", this.scene);
 	}
 
 	togglePlayPause() {
 		DEBUG && console.log("[ThreeScene.togglePlayPause] Called");
-		return;
+
+		STATE.isPlaying ? this.animate() : cancelAnimationFrame(this.raf);
+		this.colors.toggleLoop();
 	}
 	
 	destroy() {
 		DEBUG && console.log("[ThreeScene.destroy] Called");
+
+		this.frameCount = 0;
+		this.disposeResources();
+		cancelAnimationFrame(this.raf);
 		document.querySelector("canvas")?.remove();
+		window.removeEventListener("resize", this.resizeRendererToDisplaySize);
 	}
 }

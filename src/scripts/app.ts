@@ -25,16 +25,17 @@ class App {
 		this.btnReset = document.querySelector('[data-ui="appReset"]');
 		this.btnPlayPause = document.querySelector('[data-ui="appPlayPause"]');
 
+		this.handlePlayPause = this.handlePlayPause.bind(this);
 		this.togglePlayPause = this.togglePlayPause.bind(this);
-		this.toggleVisualizer = this.toggleVisualizer.bind(this);
+		this.handleSwitchEffect = this.handleSwitchEffect.bind(this);
+		this.handleReset = this.handleReset.bind(this);
 		
 		this.init();
-	}
-	
-	giveFeedback(message?: string) {
-		if (this.divFeedback) {
-			this.divFeedback.innerText = message || "";
-		}
+		
+		// Add event listeners
+		this.btnReset?.addEventListener("click", this.handleReset);
+		this.btnPlayPause?.addEventListener("click", this.handlePlayPause);
+		this.btnSwitchEffect?.addEventListener("click", this.handleSwitchEffect);
 	}
 
 	init() {
@@ -44,26 +45,28 @@ class App {
 			AUDIO.init().then(() => {
 				this.visualizer = new Bars();
 				this.visualizer.init();
+
 				this.body?.classList.add(this.classNames.body.initiated);
+				this.body?.removeEventListener("click", this.handlePlayPause);
 			}, () => {
 				DEBUG && console.log('[App.init] Could not initiate automatically');
 				STATE.initFailed = true;
 				STATE.isPlaying = false;
 				this.giveFeedback("This website uses your microphone to visualize audio \n\nClick/Tap anywhere to start");
-				this.body?.removeEventListener("click", this.togglePlayPause);
-				this.body?.addEventListener("click", this.togglePlayPause);
+
+				this.body?.addEventListener("click", this.handlePlayPause);
 			});
 		}
-		
-		// Add event listeners
-		// this.btnPlayPause?.addEventListener("click", this.togglePlayPause);
-		this.btnSwitchEffect?.addEventListener("click", this.toggleVisualizer);
 	}
 	
+	giveFeedback(message?: string) {
+		if (this.divFeedback) {
+			this.divFeedback.innerText = message || "";
+		}
+	}
 	
-	//#region Event handlers
-	togglePlayPause() {
-		DEBUG && console.log('[App.togglePlayPause] Called');
+	handlePlayPause() {
+		DEBUG && console.log('[App.handlePlayPause] Called');
 
 		if (STATE.initFailed) {
 			// Reset state and init again
@@ -71,28 +74,50 @@ class App {
 			STATE.isPlaying = true;
 			this.init();
 		} else {
-			STATE.isPlaying = !STATE.isPlaying;
+			this.togglePlayPause();
 			this.visualizer?.togglePlayPause();
-			if (STATE.isPlaying) {
-				this.body?.classList.remove(this.classNames.body.paused);
-				this.body?.classList.add(this.classNames.body.playing);
-			} else {
-				this.body?.classList.add(this.classNames.body.paused);
-				this.body?.classList.remove(this.classNames.body.playing);
-			}
 		}
 	}
 
-	toggleVisualizer() {
-		this.visualizer?.destroy();
-		if (this.visualizer instanceof Bars) {
-			this.visualizer = new ThreeScene();
+	togglePlayPause() {
+		STATE.isPlaying = !STATE.isPlaying;
+		if (STATE.isPlaying) {
+			this.body?.classList.remove(this.classNames.body.paused);
+			this.body?.classList.add(this.classNames.body.playing);
 		} else {
+			this.body?.classList.add(this.classNames.body.paused);
+			this.body?.classList.remove(this.classNames.body.playing);
+		}
+	}
+
+	handleSwitchEffect() {
+		DEBUG && console.log('[App.handleSwitchEffect] Called');
+
+		this.visualizer?.destroy();
+		if (this.visualizer instanceof ThreeScene) {
+			this.visualizer = null;
 			this.visualizer = new Bars();
+		} else {
+			this.visualizer = null;
+			this.visualizer = new ThreeScene();
 		}
 		this.visualizer.init();
+		
+		if (!STATE.isPlaying) {
+			this.togglePlayPause();
+		}
 	}
-	//#endregion
+
+	handleReset() {
+		DEBUG && console.log('[App.handleReset] Called');
+
+		this.visualizer?.destroy();
+		this.visualizer?.init();
+
+		if (!STATE.isPlaying) {
+			this.togglePlayPause();
+		}
+	}
 }
 
 window.addEventListener("DOMContentLoaded", () => {

@@ -25,6 +25,8 @@ export class Bars {
 	canvasContext: CanvasRenderingContext2D | null = null;
 	canvasElement: HTMLCanvasElement | null = null;
 
+	raf = 0;
+
 	constructor() {
 		this.drawLoop = this.drawLoop.bind(this);
 		this.togglePlayPause = this.togglePlayPause.bind(this);
@@ -62,12 +64,14 @@ export class Bars {
 	}
 
 	private drawLoop() {
-		// Mind requestAnimationFrame!
+		this.raf = requestAnimationFrame(this.drawLoop);
+
+		debuggerWithLimit.log('[Bars.drawLoop] Called');
 
 		if (!AUDIO.audioAnalyser || !AUDIO.audioBufferLength || !AUDIO.audioDataArray || !this.canvasContext || !this.canvasElement) {
 			if (DEBUG) {
-				console.error('[Bars.drawVisuals] Failed');
-				console.groupCollapsed('[Bars.drawVisuals]');
+				console.error('[Bars.drawLoop] Failed');
+				console.groupCollapsed('[Bars.drawLoop]');
 				console.log(`audioAnalyser: ${AUDIO.audioAnalyser}`);
 				console.log(`audioBufferLength: ${AUDIO.audioBufferLength}`);
 				console.log(`audioDataArray: ${AUDIO.audioDataArray}`);
@@ -77,20 +81,6 @@ export class Bars {
 			}
 			return;
 		}
-
-		let drawFrame;
-
-		// Stop drawing, eg. on pause
-		if (!STATE.isPlaying) {
-			DEBUG && console.log('[Bars.drawVisuals] Stop drawing');
-			if (drawFrame) {
-				window.cancelAnimationFrame(drawFrame);
-			}
-			return;
-		}
-
-		// Keep looping the drawing function once it has been started
-		drawFrame = requestAnimationFrame(this.drawLoop);
 
 		// Copy current frequency data into audioDataArray
 		AUDIO.audioAnalyser.getByteFrequencyData(AUDIO.audioDataArray);
@@ -153,7 +143,7 @@ export class Bars {
 		}
 
 		if (!rectParams) {
-			DEBUG && debuggerWithLimit.log('[drawVisuals] Could not get rectParams');
+			DEBUG && debuggerWithLimit.log('[drawFrameEqualizerBar] Could not get rectParams');
 			return;
 		}
 
@@ -219,12 +209,17 @@ export class Bars {
 	}
 
 	togglePlayPause() {
-		this.drawLoop();
+		DEBUG && console.log("[Bars.togglePlayPause] Called");
+
+		STATE.isPlaying ? this.drawLoop() : cancelAnimationFrame(this.raf);
 		colors.toggleLoop();
 	}
 
 	destroy() {
 		DEBUG && console.log("[Bars.destroy] Called");
+
+		cancelAnimationFrame(this.raf);
 		this.canvasElement?.remove();
+		this.canvasElement = null;
 	}
 }
