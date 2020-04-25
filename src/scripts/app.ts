@@ -2,6 +2,16 @@ import { DEBUG, STATE, AUDIO } from "./helpers/Helpers";
 import { Bars } from "./components/Bars";
 import { ThreeScene } from "./components/ThreeScene";
 
+const enum KEYCODES {
+	Enter = 13,
+	Space = 32,
+	Escape = 27,
+	LeftArrow = 37,
+	UpArrow = 38,
+	RightArrow = 39,
+	DownArrow = 40,
+}
+
 class App {
 	visualizer: Bars | ThreeScene | null = null;
 	classNames = { 
@@ -36,6 +46,26 @@ class App {
 		this.btnReset?.addEventListener("click", this.handleReset);
 		this.btnPlayPause?.addEventListener("click", this.handlePlayPause);
 		this.btnSwitchEffect?.addEventListener("click", this.handleSwitchEffect);
+
+		document.addEventListener("keyup", (event) => {
+			switch (event.keyCode) {
+				case KEYCODES.Space:
+				case KEYCODES.Enter:
+					event.preventDefault();
+					this.handlePlayPause();
+					break;
+				case KEYCODES.Escape:
+					this.handleReset();
+					break;
+				case KEYCODES.LeftArrow:
+				case KEYCODES.UpArrow:
+				case KEYCODES.RightArrow:
+				case KEYCODES.DownArrow:
+					event.preventDefault();
+					this.handleSwitchEffect();
+					break;
+			}
+		});
 	}
 
 	init() {

@@ -350,7 +350,7 @@ export class ThreeScene {
 	}
 
 	private disposeResources() {
-		DEBUG && console.log("[ThreeScene.disposeResources] Called. Current scene: ", this.scene);
+		DEBUG && console.log("[ThreeScene.disposeResources] Called");
 
 		this.disposableResources.forEach((resource) => {
 			if (resource instanceof THREE.Object3D) {
@@ -363,7 +363,6 @@ export class ThreeScene {
 		});
 		
 		this.disposableResources = [];
-		DEBUG && console.log("[ThreeScene.disposeResources] Done. Current scene: ", this.scene);
 	}
 
 	togglePlayPause() {

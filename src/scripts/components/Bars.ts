@@ -66,8 +66,6 @@ export class Bars {
 	private drawLoop() {
 		this.raf = requestAnimationFrame(this.drawLoop);
 
-		debuggerWithLimit.log('[Bars.drawLoop] Called');
-
 		if (!AUDIO.audioAnalyser || !AUDIO.audioBufferLength || !AUDIO.audioDataArray || !this.canvasContext || !this.canvasElement) {
 			if (DEBUG) {
 				console.error('[Bars.drawLoop] Failed');
