@@ -4,7 +4,7 @@
   "description": "An audio visualizer",
   "scripts": {
     "start": "npm-run-all -p watch:serve watch:sass watch:rollup",
-    "build": "npm-run-all -p build:*",
+    "build": "npm run clean && npm-run-all -p build:*",
     "clean": "rimraf dist/*",
     "watch:serve": "live-server --open=dist --watch=dist",
     "build:sass": "sass --style=compressed src/styles/app.scss dist/styles/app.min.css",
@@ -36,6 +36,7 @@
     "typescript": "^3.8.3"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^5.13.0",
     "three": "^0.115.0"
   }
 }

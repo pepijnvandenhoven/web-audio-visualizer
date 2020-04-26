@@ -27,6 +27,9 @@ export default {
 				dest: 'dist',
 				transform: (contents) => contents.toString()
 					.replace(/{{VERSION}}/g, pkg.version)
+			},{
+				src: 'node_modules/@fortawesome/fontawesome-free/webfonts/*',
+				dest: 'dist/assets/fontawesome/fonts'
 			}]
 		})
 	]

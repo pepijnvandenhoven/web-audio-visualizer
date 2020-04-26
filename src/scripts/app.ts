@@ -42,27 +42,12 @@ class App {
 		
 		this.init();
 		
-		// Add event listeners
-		this.btnReset?.addEventListener("click", this.handleReset);
-		this.btnPlayPause?.addEventListener("click", this.handlePlayPause);
-		this.btnSwitchEffect?.addEventListener("click", this.handleSwitchEffect);
-
 		document.addEventListener("keyup", (event) => {
 			switch (event.keyCode) {
 				case KEYCODES.Space:
 				case KEYCODES.Enter:
 					event.preventDefault();
 					this.handlePlayPause();
-					break;
-				case KEYCODES.Escape:
-					this.handleReset();
-					break;
-				case KEYCODES.LeftArrow:
-				case KEYCODES.UpArrow:
-				case KEYCODES.RightArrow:
-				case KEYCODES.DownArrow:
-					event.preventDefault();
-					this.handleSwitchEffect();
 					break;
 			}
 		});
@@ -78,6 +63,25 @@ class App {
 
 				this.body?.classList.add(this.classNames.body.initiated);
 				this.body?.removeEventListener("click", this.handlePlayPause);
+		
+				this.btnReset?.addEventListener("click", this.handleReset);
+				this.btnPlayPause?.addEventListener("click", this.handlePlayPause);
+				this.btnSwitchEffect?.addEventListener("click", this.handleSwitchEffect);
+		
+				document.addEventListener("keyup", (event) => {
+					switch (event.keyCode) {
+						case KEYCODES.Escape:
+							this.handleReset();
+							break;
+						case KEYCODES.LeftArrow:
+						case KEYCODES.UpArrow:
+						case KEYCODES.RightArrow:
+						case KEYCODES.DownArrow:
+							event.preventDefault();
+							this.handleSwitchEffect();
+							break;
+					}
+				});
 			}, () => {
 				DEBUG && console.log('[App.init] Could not initiate automatically');
 				STATE.initFailed = true;
@@ -101,7 +105,7 @@ class App {
 		if (STATE.initFailed) {
 			// Reset state and init again
 			STATE.initFailed = false;
-			STATE.isPlaying = true;
+			this.togglePlayPause();
 			this.init();
 		} else {
 			this.togglePlayPause();

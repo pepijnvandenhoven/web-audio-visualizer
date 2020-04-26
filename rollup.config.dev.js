@@ -18,16 +18,17 @@ export default {
 		typescript(),
 		resolve(),
 		copy({
-			targets: [
-				{ 
-					src: 'src/index.html', 
-					dest: 'dist', 
-					transform: (contents) => contents.toString()
-						.replace(/bundle.min.js/g, 'bundle.js')
-						.replace(/app.min.css/g, 'app.css')
-						.replace(/{{VERSION}}/g, pkg.version)
-			 	}
-			]
+			targets: [{ 
+				src: 'src/index.html', 
+				dest: 'dist', 
+				transform: (contents) => contents.toString()
+					.replace(/bundle.min.js/g, 'bundle.js')
+					.replace(/app.min.css/g, 'app.css')
+					.replace(/{{VERSION}}/g, pkg.version)
+				},{
+					src: 'node_modules/@fortawesome/fontawesome-free/webfonts/*',
+					dest: 'dist/assets/fontawesome/fonts'
+				}]
 		})
 	]
 };

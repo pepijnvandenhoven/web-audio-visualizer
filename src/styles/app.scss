@@ -1,3 +1,7 @@
+$fa-font-path: "../assets/fontawesome/fonts";
+@import "../../node_modules/@fortawesome/fontawesome-free/scss/fontawesome";
+@import "../../node_modules/@fortawesome/fontawesome-free/scss/solid";
+
 @import "settings";
 @import "generic";
 @import "elements";
