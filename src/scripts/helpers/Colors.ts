@@ -105,7 +105,6 @@ export class Colors {
 			return;
 		}
 		
-		// Keep looping the color rotate loop once it has been started
 		colorRotateFrame = requestAnimationFrame(this.rotateLoop);
 
 		// Assign a new color to each frequency range
