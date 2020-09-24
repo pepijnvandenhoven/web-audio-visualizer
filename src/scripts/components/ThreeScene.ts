@@ -1,10 +1,12 @@
 import * as THREE from 'three';
-import { DebuggerWithLimit, DEBUG, Colors, AUDIO, STATE } from "../helpers/Helpers";
+import { DebuggerWithLimit, DEBUG, Colors, AUDIO, STATE, ResourceTracker } from "../helpers/Helpers";
+import { HelixMeshGroup } from "../sceneSubjects/SceneSubjects";
 
 const debuggerWithLimit = new DebuggerWithLimit(32);
 
 export class ThreeScene {
 	colors: Colors;
+	resTracker: ResourceTracker;
 	/**
 	 * Object containing all colors
 	 */
@@ -72,17 +74,12 @@ export class ThreeScene {
 	/**
 	 * Group containing all meshes
 	 */
-	meshGroup: THREE.Mesh | THREE.Group;
+	helixMeshGroup: HelixMeshGroup;
 
 	/**
 	 * Average volume
 	 */
 	averageVolume: number;
-
-	/**
-	 * Disposable resources, i.e. textures, geometries, materials
-	 */
-	disposableResources: (THREE.Texture | THREE.Geometry | THREE.Material | THREE.Object3D)[];
 
 	/**
 	 * Current requestAnimationFrame
@@ -104,10 +101,11 @@ export class ThreeScene {
 	 */
 	frameCount = 0;
 	
-
-
 	constructor() {
 		this.colors = new Colors();
+		this.resTracker = new ResourceTracker();
+		this.helixMeshGroup = new HelixMeshGroup(this.colors, this.resTracker);
+			
 		this.colorPalette = {
 			primary: 		new THREE.Color("#000"),
 			primaryDark: 	new THREE.Color("#000"),
@@ -134,12 +132,8 @@ export class ThreeScene {
 		this.sun = new THREE.DirectionalLight(this.colorPalette.white, .5);
 		this.pointLightGroup = new THREE.Group();
 		this.showPointLightOrbs = false;
-		
-		this.meshGroup = new THREE.Group();
+
 		this.averageVolume = 0;
-
-		this.disposableResources = [];
-
 		this.maxFPS = 60;
 
 		this.animate = this.animate.bind(this);
@@ -158,18 +152,18 @@ export class ThreeScene {
 		this.renderer.setSize(window.innerWidth, window.innerHeight);
 		
 		// LIGHTS
-		this.scene.add(this.track(this.ambientLight));
-		this.scene.add(this.track(this.hemisphereLight));
+		this.scene.add(this.resTracker.track(this.ambientLight));
+		this.scene.add(this.resTracker.track(this.hemisphereLight));
 
 		this.sun.position.set(1000, 500, 500);
-		this.scene.add(this.track(this.sun));
+		this.scene.add(this.resTracker.track(this.sun));
 		
 		this.pointLightGroup = this.createPointLightGroup();
-		this.scene.add(this.track(this.pointLightGroup));
+		this.scene.add(this.resTracker.track(this.pointLightGroup));
 		
 		// MESH
-		this.meshGroup = this.addHelixMeshGroup();
-		this.scene.add(this.track(this.meshGroup));
+		this.helixMeshGroup = new HelixMeshGroup(this.colors, this.resTracker);
+		this.scene.add(this.resTracker.track(this.helixMeshGroup));
 
 		document.body.appendChild(this.renderer.domElement);
 		this.renderer.render(this.scene, this.camera);
@@ -178,14 +172,7 @@ export class ThreeScene {
 		// Event listeners
 		window.addEventListener("resize", this.resizeRendererToDisplaySize);
 		
-		DEBUG && console.log(`[ThreeScene.init] Done. Added ${this.disposableResources.length} disposable resources`);
-	}
-
-	private track<T>(resource: T) : T {
-		if (resource instanceof THREE.Texture || resource instanceof THREE.Geometry || resource instanceof THREE.Material || resource instanceof THREE.Object3D) {
-			this.disposableResources.push(resource);
-		}
-		return resource;
+		DEBUG && console.log(`[ThreeScene.init] Done. Added ${this.resTracker.disposableResources.length} disposable resources`);
 	}
 
 	private createPointLightGroup() {
@@ -212,41 +199,6 @@ export class ThreeScene {
 		}
 
 		return light;
-	}
-
-	private addHelixMeshGroup() {
-		DEBUG && console.log("[ThreeScene.addHelixMeshGroup] Called");
-
-		let size = 10;
-		let gap = 10;
-		let offset = size + gap;
-		let group = new THREE.Group();
-		let geometry = this.track(new THREE.BoxGeometry(size, size, size));
-		let mesh;
-
-		// Use frequency divisions for initial mesh color, position, etc.
-		if(AUDIO.audioBufferLength) {
-			DEBUG && console.log(`[ThreeScene.addHelixMeshGroup] Generating ${AUDIO.audioBufferLength} meshes`);
-
-			for ( let i = 0; i < AUDIO.audioBufferLength; i++ ) {
-				let material = this.createMaterial(new THREE.Color(this.colors.parse(this.colors.colorBufferArray[i])));
-				mesh = this.track(new THREE.Mesh(geometry, material));
-				// Place next to eachother, centered
-				mesh.position.x = i * offset - (AUDIO.audioBufferLength * offset / 2);
-				mesh.rotateX(i/AUDIO.audioBufferLength * 3);
-				group.add(mesh);
-			}
-		}
-
-		return group;
-	}
-
-	private createMaterial(color: THREE.Color) {
-		return this.track(new THREE.MeshPhongMaterial({
-			color: color,
-			shininess: 1,
-			reflectivity: 1 
-		}));
 	}
 
 	private animate(currTime = 0) {
@@ -308,17 +260,7 @@ export class ThreeScene {
 		});
 		
 		// MESH
-		this.meshGroup.children.forEach((mesh, i) => {
-			if (mesh instanceof THREE.Mesh && mesh.material instanceof THREE.MeshPhongMaterial) {
-				let byteData = AUDIO.audioDataArray?.[i] || 0; // 0 - 255
-				mesh.scale.y = byteData / AUDIO.MAX_BYTE_DATA * 50 + 1;
-				mesh.rotation.y = delta * .25;
-				mesh.material.color.set(new THREE.Color(this.colors.parse(this.colors.colorBufferArray[i])));
-			}
-		});
-		this.meshGroup.rotation.x = delta * .125;
-		this.meshGroup.rotation.y = delta * .05;
-		this.meshGroup.rotation.z = delta * .01;
+		this.helixMeshGroup.animate(delta);
 
 		// SCENE
 		this.scene.background = this.colorPalette.primaryDark;
@@ -349,22 +291,6 @@ export class ThreeScene {
 		}
 	}
 
-	private disposeResources() {
-		DEBUG && console.log("[ThreeScene.disposeResources] Called");
-
-		this.disposableResources.forEach((resource) => {
-			if (resource instanceof THREE.Object3D) {
-				if (resource.parent) {
-				  resource.parent.remove(resource);
-				}
-			} else {
-				resource.dispose();
-			}
-		});
-		
-		this.disposableResources = [];
-	}
-
 	togglePlayPause() {
 		DEBUG && console.log("[ThreeScene.togglePlayPause] Called");
 
@@ -376,7 +302,7 @@ export class ThreeScene {
 		DEBUG && console.log("[ThreeScene.destroy] Called");
 
 		this.frameCount = 0;
-		this.disposeResources();
+		this.resTracker.dispose();
 		cancelAnimationFrame(this.raf);
 		document.querySelector("canvas")?.remove();
 		window.removeEventListener("resize", this.resizeRendererToDisplaySize);
