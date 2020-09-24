@@ -1,3 +1,12 @@
+button {
+	all: initial;
+	font-family: inherit;
+	font-size: 1em;
+	cursor: pointer;
+}
+
 canvas {
-	vertical-align: bottom;
+	width: 100% !important;
+	height: 100% !important;
+	display: block;
 }
