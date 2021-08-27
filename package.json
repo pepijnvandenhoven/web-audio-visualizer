@@ -1,6 +1,6 @@
 {
   "name": "web-audio-visualizer",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "An audio visualizer",
   "scripts": {
     "start": "npm-run-all -p watch:serve watch:sass watch:rollup",
